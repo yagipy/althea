@@ -1,0 +1,16 @@
+[package]
+name = "alc_driver"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.9.0"
+log = "0.4.8"
+alc_diagnostic = { path = "../alc_diagnostic" }
+alc_command_option = { path = "../alc_command_option" }
+alc_parser = { path = "../alc_parser" }
+alc_ast_lowering = { path = "../alc_ast_lowering" }
+alc_codegen_llvm = { path = "../alc_codegen_llvm" }
+alc_type_checker = { path = "../alc_type_checker" }

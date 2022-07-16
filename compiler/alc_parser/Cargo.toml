@@ -1,0 +1,11 @@
+[package]
+name = "alc_parser"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.8"
+alc_diagnostic = { path = "../alc_diagnostic" }
+alc_command_option = { path = "../alc_command_option" }
