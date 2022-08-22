@@ -1,0 +1,11 @@
+[package]
+name = "alc_type_checker"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+alc_diagnostic = { path = "../alc_diagnostic" }
+alc_ast_lowering = { path = "../alc_ast_lowering" }
+alc_command_option = { path = "../alc_command_option" }

@@ -1,0 +1,13 @@
+[package]
+name = "alc_diagnostic"
+version = "0.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+codespan = "0.5.0"
+codespan-reporting = "0.5.0"
+log = "0.4.8"
+#miette = { version = "5.3.0", features = ["fancy"] }
+#thiserror = "1.0.32"
