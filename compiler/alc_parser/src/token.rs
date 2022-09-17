@@ -24,7 +24,6 @@ pub enum Kind {
     Enum,
     U64Ty,
     Eq,
-    FnArrow,
     MatchArrow,
     Comma,
     Semi,

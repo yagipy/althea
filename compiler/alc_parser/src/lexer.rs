@@ -30,13 +30,7 @@ impl<'a> Iterator for Lexer<'a> {
                 _ => Kind::Not.into(),
             },
             '+' => Kind::Plus.into(),
-            '-' => match self.nth_char(0) {
-                '>' => {
-                    self.chars.next()?;
-                    Kind::FnArrow.into()
-                }
-                _ => Kind::Minus.into(),
-            },
+            '-' => Kind::Minus.into(),
             '*' => Kind::Mul.into(),
             '/' => match self.nth_char(0) {
                 '/' => {

@@ -1,4 +1,4 @@
-func fib(n: u64) -> u64 {
+func fib(n: u64) u64 {
     if n <= 0 {
         0
     } else if n == 1 {
@@ -8,6 +8,6 @@ func fib(n: u64) -> u64 {
     }
 }
 
-func main() -> u64 {
+func main() u64 {
     fib(10)
 }
