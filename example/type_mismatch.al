@@ -1,5 +1,5 @@
 struct Unit {}
 
-func main() -> u64 {
+func main() u64 {
     Unit {}
 }

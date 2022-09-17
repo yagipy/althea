@@ -3,10 +3,10 @@ struct User {
     email: u64,
 }
 
-func add(a: u64, b: u64) -> u64 {
+func add(a: u64, b: u64) u64 {
     a + b
 }
 
-func main() -> u64 {
+func main() u64 {
     add(20, 22)
 }

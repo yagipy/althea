@@ -3,11 +3,11 @@ struct User {
     email: u64,
 }
 
-func main() -> u64 {
+func main() u64 {
     allocate(1000)
 }
 
-func allocate(size: u64) -> u64 {
+func allocate(size: u64) u64 {
     let u = User {
         name: size,
         email: size,

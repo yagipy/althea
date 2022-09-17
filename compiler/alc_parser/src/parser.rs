@@ -491,7 +491,6 @@ impl<'a> Parser<'a> {
         let params = self
             .next_comma_group(Kind::LParen, Kind::RParen, |this| this.next_binding())?
             .into_raw();
-        self.eat(Kind::FnArrow)?;
         let return_ty = self.next_ty()?;
         let body = self.next_term()?;
         let span = span.merge(body.span());

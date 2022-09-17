@@ -1,7 +1,7 @@
-func GC_malloc() -> u64 {
+func GC_malloc() u64 {
     0
 }
 
-func main() -> u64 {
+func main() u64 {
     GC_malloc()
 }
