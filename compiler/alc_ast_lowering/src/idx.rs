@@ -1,11 +1,13 @@
 use std::{cell::Cell, fmt, hash::Hash, marker::PhantomData};
 
+/// A trait for types that can be used as indices into a vector.
 pub trait Idx: 'static + Copy + Eq + Hash + fmt::Debug {
     fn index(&self) -> usize;
 
     fn new(index: usize) -> Self;
 }
 
+/// A wrapper around a `usize` that implements `Idx`.
 #[derive(Clone, Debug)]
 pub struct Idxr<T> {
     next: Cell<usize>,

@@ -232,6 +232,8 @@ impl TySess {
         self.tys.borrow_mut().push(kind)
     }
 
+    // if the type is already in the uniqued map, return it
+    // otherwise, bind the type and insert it into the uniqued map
     fn make_unique(&self, kind: TyKind) -> Ty {
         let mut uniqued = self.uniqued.borrow_mut();
         if let Some(ty) = uniqued.get(&kind).copied() {

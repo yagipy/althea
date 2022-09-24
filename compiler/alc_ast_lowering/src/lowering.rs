@@ -9,9 +9,12 @@ pub struct Lowering<'ast> {
     command_options: &'ast alc_command_option::CommandOptions,
     pub file_id: FileId,
     pub tys: TyLowering<'ast>,
-    ir: ir::Ir,
-    bind_points: IdxVec<ir::DefIdx, Span>,
-    global_map: HashMap<&'ast ast::Ident, ir::DefIdx>,
+    /// Intermediate Representation for Althea
+    pub ir: ir::Ir,
+    /// Index and code span mapping for each function
+    pub bind_points: IdxVec<ir::DefIdx, Span>,
+    /// Function name and index mapping
+    pub global_map: HashMap<&'ast ast::Ident, ir::DefIdx>,
 }
 
 impl<'ast> Lowering<'ast> {
@@ -40,36 +43,6 @@ impl<'ast> Lowering<'ast> {
         Ok(())
     }
 
-    pub fn lower<T>(&mut self, items: T) -> Result<()>
-    where T: Iterator<Item = &'ast ast::Item> {
-        for item in items {
-            if let ast::Item::Fn(decl) = item {
-                let def = self.lower_decl(decl)?;
-                self.ir.defs.push(def);
-            }
-        }
-        Ok(())
-    }
-
-    pub fn complete(self) -> (ir::Ir, ty::TySess) {
-        (self.ir, self.tys.into_ty_sess())
-    }
-
-    pub fn lookup(&self, ident: &'ast ast::Ident, span: Span) -> Result<ir::DefIdx> {
-        if let Some(def_idx) = self.global_map.get(ident) {
-            Ok(*def_idx)
-        } else {
-            Err(Diagnostic::new_error(
-                "reference to unbound function symbol",
-                Label::new(
-                    self.file_id,
-                    span,
-                    &format!("'{}' is not bound as a function symbol", ident),
-                ),
-            ))
-        }
-    }
-
     fn bind(&mut self, ident: &'ast ast::Ident, span: Span) -> Result<ir::DefIdx> {
         if let Some(def_idx) = self.global_map.get(ident) {
             Err(Diagnostic::new_error(
@@ -92,7 +65,18 @@ impl<'ast> Lowering<'ast> {
         }
     }
 
-    fn lower_decl(&mut self, decl: &'ast ast::FnDecl) -> Result<ir::Def> {
+    pub fn lower<T>(&mut self, items: T) -> Result<()>
+    where T: Iterator<Item = &'ast ast::Item> {
+        for item in items {
+            if let ast::Item::Fn(decl) = item {
+                let def = self.lower_fn_decl(decl)?;
+                self.ir.defs.push(def);
+            }
+        }
+        Ok(())
+    }
+
+    fn lower_fn_decl(&mut self, decl: &'ast ast::FnDecl) -> Result<ir::Def> {
         if RESERVED_NAMES.contains(&&**decl.name) {
             return Err(Diagnostic::new_error(
                 "use of reserved name",
@@ -106,12 +90,12 @@ impl<'ast> Lowering<'ast> {
         let def_idx = self.lookup(&decl.name, decl.name.span())?;
         let local_idxr = Idxr::new();
         let block_idxr = Idxr::new();
-        let mut lcx = LoweringCtx::new(self, &local_idxr, &block_idxr, def_idx);
+        let mut lowering_ctx = LoweringCtx::new(self, &local_idxr, &block_idxr, def_idx);
         let mut param_tys = IdxVec::new();
         let mut param_bindings: IdxVec<ty::ParamIdx, ir::LocalIdx> = IdxVec::new();
         for binding in decl.params.iter() {
             let local_idx = local_idxr.next().with_span(binding.span());
-            if lcx.bind(&binding.binder, local_idx).is_some() {
+            if lowering_ctx.bind(&binding.binder, local_idx).is_some() {
                 return Err(Diagnostic::new_error(
                     "attempted to rebind formal parameter",
                     Label::new(
@@ -130,8 +114,27 @@ impl<'ast> Lowering<'ast> {
             name: decl.name.clone(),
             span: decl.name.span(),
             ty: self.tys.ty_sess().make_fn(return_ty, param_tys),
-            entry: lcx.lower_entry(param_bindings, &decl.body, decl.body.span())?,
+            entry: lowering_ctx.lower_entry(param_bindings, &decl.body, decl.body.span())?,
             local_idxr,
         })
+    }
+
+    pub fn complete(self) -> (ir::Ir, ty::TySess) {
+        (self.ir, self.tys.into_ty_sess())
+    }
+
+    pub fn lookup(&self, ident: &'ast ast::Ident, span: Span) -> Result<ir::DefIdx> {
+        if let Some(def_idx) = self.global_map.get(ident) {
+            Ok(*def_idx)
+        } else {
+            Err(Diagnostic::new_error(
+                "reference to unbound function symbol",
+                Label::new(
+                    self.file_id,
+                    span,
+                    &format!("'{}' is not bound as a function symbol", ident),
+                ),
+            ))
+        }
     }
 }

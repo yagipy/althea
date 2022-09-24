@@ -9,6 +9,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+/// A vector that can be indexed by `Idx`.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct IdxVec<I, T> {
     raw: Vec<T>,

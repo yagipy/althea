@@ -10,11 +10,11 @@ pub struct TyLowering<'ast> {
     #[allow(unused)]
     command_options: &'ast CommandOptions,
     file_id: FileId,
-    ty_sess: ty::TySess,
-    u64_ty: ty::Ty,
-    tys: HashMap<&'ast ast::Ident, ty::Ty>,
-    variants: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::VariantIdx>>,
-    fields: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::FieldIdx>>,
+    pub ty_sess: ty::TySess,
+    pub u64_ty: ty::Ty,
+    pub tys: HashMap<&'ast ast::Ident, ty::Ty>,
+    pub variants: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::VariantIdx>>,
+    pub fields: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::FieldIdx>>,
 }
 
 impl<'ast> TyLowering<'ast> {

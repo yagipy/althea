@@ -11,11 +11,12 @@ use inkwell::{
     context::Context,
     module::Module,
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue},
+    values::{BasicValueEnum, FunctionValue, IntValue, PointerValue},
     AddressSpace,
 };
 use log::debug;
 use std::path::Path;
+use inkwell::values::BasicValue;
 
 const ALC_FREE: &str = "alc_free";
 const ALC_RESET: &str = "alc_reset";
@@ -61,7 +62,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         };
         ctx.bind_reserved_functions();
         for def in ir.defs.values() {
-            ctx.bind_def(def);
+            ctx.bind_fn_def(def);
         }
         for def in ir.defs.values() {
             let compiled_def = ctx.compile_def(def)?;
@@ -70,23 +71,35 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 compiled_def.verify(true);
             }
         }
-        debug!("{}", module.print_to_string().to_string());
         module.verify().map_err(|err| {
             Diagnostic::new_bug(
                 "LLVM IR could not be verified",
                 Label::new(file_id, Span::dummy(), &format!("{}", err)),
             )
         })?;
+        debug!("{}", module.print_to_string().to_string());
         ctx.write_to_ll_file(&ctx.command_options.out)
     }
 
-    fn bind_def(&self, def: &ir::Def) -> FunctionValue<'ctx> {
+    fn bind_fn_def(&self, def: &ir::Def) -> FunctionValue<'ctx> {
         let fn_ty = self.compile_ty(def.ty).into_function_type();
         self.module.add_function(&def.name, fn_ty, None)
     }
 
     fn bind_reserved_functions(&self) {
-        // TODO: GC
+        self.module.add_function(
+            ALC_FREE,
+            self.context.void_type().fn_type(
+                &[self
+                    .context
+                    .i8_type()
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum()
+                    .into()],
+                false,
+            ),
+            None,
+        );
     }
 
     fn lookup_def(&self, def: ir::DefIdx, span: Span) -> Result<FunctionValue<'ctx>> {
@@ -114,6 +127,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             self.context.i8_type().ptr_type(AddressSpace::Generic),
             "raw",
         );
+        // self.builder.build_free(ptr);
         self.builder.build_call(
             self.module.get_function(ALC_FREE).unwrap(),
             &[ptr.as_basic_value_enum().into()],
@@ -181,9 +195,9 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         }
     }
 
-    fn read_mark(&self, ptr: PointerValue<'ctx>, ty: ty::Ty) -> BasicValueEnum<'ctx> {
-        self.builder.build_load(self.mark_ptr(ptr, ty), "mark")
-    }
+    // fn read_mark(&self, ptr: PointerValue<'ctx>, ty: ty::Ty) -> BasicValueEnum<'ctx> {
+    //     self.builder.build_load(self.mark_ptr(ptr, ty), "mark")
+    // }
 
     fn write_mark(&self, ptr: PointerValue<'ctx>, ty: ty::Ty, mark: bool) {
         self.builder.build_store(

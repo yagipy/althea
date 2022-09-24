@@ -6,6 +6,7 @@ use inkwell::{
     IntPredicate,
 };
 use std::{collections::HashMap, ops::Deref};
+use alc_command_option::Gc;
 
 macro_rules! local {
     ( $idx:expr ) => {{
@@ -26,16 +27,167 @@ pub struct CodegenLLVMCtx<'gen, 'ctx> {
     sess: &'gen CodegenLLVM<'gen, 'ctx>,
     ir: &'gen ir::Def,
     llvm: FunctionValue<'ctx>,
+    // TODO: ここにcountを生やす？
     bindings: HashMap<ir::LocalIdx, BasicValueEnum<'ctx>>,
 }
 
 impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
+    pub(super) fn compile_def(
+        sess: &'gen CodegenLLVM<'gen, 'ctx>,
+        def: &'gen ir::Def,
+    ) -> Result<FunctionValue<'ctx>> {
+        // println!("----------compile_def----------");
+        let ctx = CodegenLLVMCtx {
+            sess,
+            ir: def,
+            llvm: sess.lookup_def(def.def_idx, def.span)?,
+            bindings: HashMap::new(),
+        };
+        // println!("compile_def ctx.llvm: {:#?}", ctx.llvm);
+        // println!("compile_def ctx.bindings: {:#?}", ctx.bindings);
+        ctx.compile()
+    }
+
+    fn compile(mut self) -> Result<FunctionValue<'ctx>> {
+        self.compile_entry(&self.ir.entry)?;
+        Ok(self.llvm)
+    }
+
+    fn compile_entry(&mut self, entry: &ir::Entry) -> Result<()> {
+        // println!("----------compile_entry----------");
+        let entry_block = self.context.append_basic_block(self.llvm, "entry");
+        self.builder.position_at_end(entry_block);
+        for (param_idx, binding) in entry.param_bindings.iter() {
+            self.bind(*binding, self.read_param(self.llvm, param_idx));
+        }
+        // println!("compile_entry, &entry.body: {:#?}", &entry.body);
+        self.compile_block(&entry.body)
+    }
+
+    fn compile_block(&mut self, block: &ir::Block) -> Result<()> {
+        for instruction in block.instructions.iter() {
+            self.compile_instruction(instruction)?;
+        }
+        self.compile_terminator(&block.terminator)
+    }
+
+    fn compile_instruction(&mut self, instruction: &ir::Instruction) -> Result<()> {
+        match &instruction.kind {
+            ir::InstructionKind::Let { binding, expr, .. } => {
+                // println!("----------compile_instruction::Let----------");
+                // println!("compile_instruction::Let, binding: {:#?}, expr: {:#?}", binding, expr);
+                let compiled_expr = self.compile_expr(expr)?;
+                self.bind(*binding, compiled_expr);
+                // println!("----------after bind----------");
+                // println!("bindings: {:#?}", self.bindings);
+            }
+            ir::InstructionKind::Mark(idx, ty) => {
+                // %a.mark := 1;
+                self.write_mark(self.lookup(*idx)?.into_pointer_value(), *ty, true);
+            }
+            ir::InstructionKind::Unmark(idx, ty) => {
+                // %a.mark := 0;
+                self.write_mark(self.lookup(*idx)?.into_pointer_value(), *ty, false);
+            }
+            ir::InstructionKind::Free(idx, _) => {
+                // if marked(%a) {} else { @alc_free(%a); }
+                match self.sess.command_options.gc {
+                    Gc::OwnRc => {
+                        let ptr = self.lookup(*idx)?.into_pointer_value();
+                        // let free_block = self.context.append_basic_block(self.llvm, "free");
+                        // let merge_block = self.context.append_basic_block(self.llvm, "merge");
+                        // self.builder.build_conditional_branch(
+                        //     self.read_mark(ptr, *ty).into_int_value(),
+                        //     merge_block,
+                        //     free_block,
+                        // );
+                        // self.builder.position_at_end(free_block);
+                        self.build_free(ptr);
+                        // self.builder.build_unconditional_branch(merge_block);
+                        // self.builder.position_at_end(merge_block);
+                    }
+                    _ => {}
+                }
+            }
+            ir::InstructionKind::RTReset => {
+                // @alc_reset();
+                self.build_reset();
+            }
+        }
+        Ok(())
+    }
+
+    fn compile_terminator(&mut self, terminator: &ir::Terminator) -> Result<()> {
+        match terminator {
+            ir::Terminator::Return(local_idx) => {
+                // println!("----------compile_terminator::Return----------");
+                // println!("compile_terminator::Return, local_idx: {:#?}", local_idx);
+                // TODO: スコープの終わりでデクリメント(返り値に含まれていたら無視)して、0になったらfreeする
+                self.builder.build_return(Some(&self.lookup(*local_idx)?));
+            }
+            ir::Terminator::Match { source, arms } => {
+                let source = self.lookup(*source)?;
+                let origin = self.builder.get_insert_block().unwrap();
+                let mut source_ty = None;
+                let mut else_block = None;
+                let mut cases = vec![];
+                for (i, arm) in arms.iter().enumerate() {
+                    let block = if let ir::PatternKind::Record { .. } = &arm.pattern {
+                        origin
+                    } else {
+                        self.context.append_basic_block(self.llvm, &format!("arm_{}", i))
+                    };
+                    self.builder.position_at_end(block);
+                    match self.compile_pattern(source, &arm.pattern) {
+                        MatchCase::Wild => {
+                            else_block = Some(block);
+                            self.compile_block(&arm.target)?;
+                            break;
+                        }
+                        MatchCase::Record => {
+                            self.compile_block(&arm.target)?;
+                            return Ok(());
+                        }
+                        MatchCase::Literal(case) => {
+                            cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
+                        MatchCase::Variant(ty, case) => {
+                            source_ty = Some(ty);
+                            cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
+                    }
+                }
+                let else_block = match else_block {
+                    Some(block) => block,
+                    _ => {
+                        let block = self.context.append_basic_block(self.llvm, "unreachable_else");
+                        self.builder.position_at_end(block);
+                        self.builder.build_unreachable();
+                        block
+                    }
+                };
+                self.builder.position_at_end(origin);
+                let source = if let Some(ty) = source_ty {
+                    self.read_enum_discriminant(source.into_pointer_value(), ty)?
+                } else {
+                    source
+                }
+                    .into_int_value();
+                self.builder.build_switch(source, else_block, cases.as_slice());
+            }
+        }
+        Ok(())
+    }
+
     fn bind(&mut self, idx: ir::LocalIdx, value: BasicValueEnum<'ctx>) {
         self.bindings.insert(idx, value);
     }
 
     fn lookup(&self, idx: ir::LocalIdx) -> Result<BasicValueEnum<'ctx>> {
         if let Some(value) = self.bindings.get(&idx) {
+            // TODO: インクリメント
             Ok(*value)
         } else {
             Err(Diagnostic::new_bug(
@@ -159,50 +311,6 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
         }
     }
 
-    fn compile_instruction(&mut self, instruction: &ir::Instruction) -> Result<()> {
-        match &instruction.kind {
-            ir::InstructionKind::Let { binding, expr, .. } => {
-                let compiled_expr = self.compile_expr(expr)?;
-                self.bind(*binding, compiled_expr);
-            }
-            ir::InstructionKind::Mark(idx, ty) => {
-                // %a.mark := 1;
-                self.write_mark(self.lookup(*idx)?.into_pointer_value(), *ty, true);
-            }
-            ir::InstructionKind::Unmark(idx, ty) => {
-                // %a.mark := 0;
-                self.write_mark(self.lookup(*idx)?.into_pointer_value(), *ty, false);
-            }
-            ir::InstructionKind::Free(idx, ty) => {
-                // if marked(%a) {} else { @alc_free(%a); }
-                let ptr = self.lookup(*idx)?.into_pointer_value();
-                let free_block = self.context.append_basic_block(self.llvm, "free");
-                let merge_block = self.context.append_basic_block(self.llvm, "merge");
-                self.builder.build_conditional_branch(
-                    self.read_mark(ptr, *ty).into_int_value(),
-                    merge_block,
-                    free_block,
-                );
-                self.builder.position_at_end(free_block);
-                self.build_free(ptr);
-                self.builder.build_unconditional_branch(merge_block);
-                self.builder.position_at_end(merge_block);
-            }
-            ir::InstructionKind::RTReset => {
-                // @alc_reset();
-                self.build_reset();
-            }
-        }
-        Ok(())
-    }
-
-    fn compile_block(&mut self, block: &ir::Block) -> Result<()> {
-        for instruction in block.instructions.iter() {
-            self.compile_instruction(instruction)?;
-        }
-        self.compile_terminator(&block.terminator)
-    }
-
     fn compile_pattern(
         &mut self,
         source: BasicValueEnum<'ctx>,
@@ -233,94 +341,6 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 MatchCase::Record
             }
         }
-    }
-
-    fn compile_terminator(&mut self, terminator: &ir::Terminator) -> Result<()> {
-        match terminator {
-            ir::Terminator::Return(local_idx) => {
-                self.builder.build_return(Some(&self.lookup(*local_idx)?));
-            }
-            ir::Terminator::Match { source, arms } => {
-                let source = self.lookup(*source)?;
-                let origin = self.builder.get_insert_block().unwrap();
-                let mut source_ty = None;
-                let mut else_block = None;
-                let mut cases = vec![];
-                for (i, arm) in arms.iter().enumerate() {
-                    let block = if let ir::PatternKind::Record { .. } = &arm.pattern {
-                        origin
-                    } else {
-                        self.context.append_basic_block(self.llvm, &format!("arm_{}", i))
-                    };
-                    self.builder.position_at_end(block);
-                    match self.compile_pattern(source, &arm.pattern) {
-                        MatchCase::Wild => {
-                            else_block = Some(block);
-                            self.compile_block(&arm.target)?;
-                            break;
-                        }
-                        MatchCase::Record => {
-                            self.compile_block(&arm.target)?;
-                            return Ok(());
-                        }
-                        MatchCase::Literal(case) => {
-                            cases.push((case, block));
-                            self.compile_block(&arm.target)?;
-                        }
-                        MatchCase::Variant(ty, case) => {
-                            source_ty = Some(ty);
-                            cases.push((case, block));
-                            self.compile_block(&arm.target)?;
-                        }
-                    }
-                }
-                let else_block = match else_block {
-                    Some(block) => block,
-                    _ => {
-                        let block = self.context.append_basic_block(self.llvm, "unreachable_else");
-                        self.builder.position_at_end(block);
-                        self.builder.build_unreachable();
-                        block
-                    }
-                };
-                self.builder.position_at_end(origin);
-                let source = if let Some(ty) = source_ty {
-                    self.read_enum_discriminant(source.into_pointer_value(), ty)?
-                } else {
-                    source
-                }
-                .into_int_value();
-                self.builder.build_switch(source, else_block, cases.as_slice());
-            }
-        }
-        Ok(())
-    }
-
-    fn compile_entry(&mut self, entry: &ir::Entry) -> Result<()> {
-        let entry_block = self.context.append_basic_block(self.llvm, "entry");
-        self.builder.position_at_end(entry_block);
-        for (param_idx, binding) in entry.param_bindings.iter() {
-            self.bind(*binding, self.read_param(self.llvm, param_idx));
-        }
-        self.compile_block(&entry.body)
-    }
-
-    fn compile(mut self) -> Result<FunctionValue<'ctx>> {
-        self.compile_entry(&self.ir.entry)?;
-        Ok(self.llvm)
-    }
-
-    pub(super) fn compile_def(
-        sess: &'gen CodegenLLVM<'gen, 'ctx>,
-        def: &'gen ir::Def,
-    ) -> Result<FunctionValue<'ctx>> {
-        let ctx = CodegenLLVMCtx {
-            sess,
-            ir: def,
-            llvm: sess.lookup_def(def.def_idx, def.span)?,
-            bindings: HashMap::new(),
-        };
-        ctx.compile()
     }
 }
 
