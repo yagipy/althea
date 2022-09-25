@@ -16,7 +16,8 @@ pub(super) struct LoweringCtx<'lcx, 'ast> {
     block_idxr: &'lcx Idxr<ir::BlockIdx>,
     def_idx: ir::DefIdx,
     parent: Option<&'lcx LoweringCtx<'lcx, 'ast>>,
-    local_map: HashMap<&'ast ast::Ident, ir::LocalIdx>,
+    local_map: HashMap<&'ast ast::Ident, (ir::LocalIdx, Option<ty::Ty>)>,
+    field_map: HashMap<ir::LocalIdx, IdxVec<ty::FieldIdx, ir::LocalIdx>>,
     instructions: Vec<ir::Instruction>,
 }
 
@@ -34,6 +35,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
             def_idx,
             parent: None,
             local_map: HashMap::new(),
+            field_map: HashMap::new(),
             instructions: vec![],
         }
     }
@@ -59,13 +61,14 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
             def_idx: self.def_idx,
             parent: Some(self),
             local_map: HashMap::new(),
+            field_map: HashMap::new(),
             instructions: vec![],
         }
     }
 
-    fn lookup(&self, ident: &'ast ast::Ident, span: Span) -> Result<ir::LocalIdx> {
+    fn lookup(&self, ident: &'ast ast::Ident, span: Span) -> Result<(ir::LocalIdx, Option<ty::Ty>)> {
         if let Some(local_idx) = self.local_map.get(ident) {
-            Ok(local_idx.with_span(span))
+            Ok(*local_idx)
         } else if let Some(parent) = self.parent {
             parent.lookup(ident, span)
         } else {
@@ -80,9 +83,62 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
         }
     }
 
+    fn lookup_field(
+        &self,
+        local_idx: ir::LocalIdx,
+        field_idx: ty::FieldIdx,
+        span: Span,
+    ) -> Result<ir::LocalIdx> {
+        if let Some(field_map) = self.field_map.get(&local_idx) {
+            if let Some(field_local_idx) = field_map.get(field_idx) {
+                Ok(field_local_idx.with_span(span))
+            } else {
+                Err(Diagnostic::new_error(
+                    "reference to unbound field",
+                    Label::new(
+                        self.sess.file_id,
+                        span,
+                        &format!("'{:?}' is not bound here (while lowering)", field_idx),
+                    ),
+                ))
+            }
+        } else if let Some(parent) = self.parent {
+            parent.lookup_field(local_idx, field_idx, span)
+        } else {
+            Err(Diagnostic::new_error(
+                "reference to unbound field",
+                Label::new(
+                    self.sess.file_id,
+                    span,
+                    &format!("'{:?}' is not bound here (while lowering)", field_idx),
+                ),
+            ))
+        }
+    }
+
+    fn lookup_fields(
+        &self,
+        local_idx: ir::LocalIdx,
+        field_idxes: Vec<ty::FieldIdx>,
+        span: Span,
+    ) -> Result<ir::LocalIdx> {
+        let mut root_local_idx = self
+            .lookup_field(local_idx, *field_idxes.first().unwrap(), span)
+            .unwrap();
+        for field_idx in field_idxes.into_iter().skip(1) {
+            root_local_idx = self.lookup_field(root_local_idx, field_idx, span).unwrap();
+        }
+        Ok(root_local_idx)
+    }
+
     #[inline]
-    pub(super) fn bind(&mut self, ident: &'ast ast::Ident, local_idx: ir::LocalIdx) -> Option<ir::LocalIdx> {
-        self.local_map.insert(ident, local_idx)
+    pub(super) fn bind(
+        &mut self,
+        ident: &'ast ast::Ident,
+        local_idx: ir::LocalIdx,
+        ty: Option<ty::Ty>,
+    ) -> Option<(ir::LocalIdx, Option<ty::Ty>)> {
+        self.local_map.insert(ident, (local_idx, ty))
     }
 
     #[inline]
@@ -116,7 +172,18 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
     fn lower_expr_kind(&mut self, expr: &'ast ast::Expr, span: Span) -> Result<ir::ExprKind> {
         Ok(match expr {
             ast::Expr::Literal(literal) => ir::ExprKind::Literal(*literal),
-            ast::Expr::Var(ident) => ir::ExprKind::Var(self.lookup(ident, span)?),
+            ast::Expr::Var(stream) => {
+                let (local_idx, ty) = self.lookup(stream.first().unwrap(), span)?;
+                if stream.len() == 1 {
+                    return Ok(ir::ExprKind::Var(local_idx, vec![]));
+                }
+                let mut field_idxes = vec![];
+                for field in stream.iter().skip(1) {
+                    let field_idx = self.sess.tys.lookup_field(ty.unwrap(), field, field.span())?;
+                    field_idxes.push(field_idx);
+                }
+                ir::ExprKind::Var(local_idx, field_idxes)
+            }
             ast::Expr::Unop { kind, operand } => ir::ExprKind::Unop {
                 kind: self.lower_unop_kind(**kind),
                 operand: self.lower_expr(None, operand, operand.span())?,
@@ -201,7 +268,35 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
     fn lower_expr(&mut self, ty: Option<ty::Ty>, expr: &'ast ast::Expr, span: Span) -> Result<ir::LocalIdx> {
         let kind = self.lower_expr_kind(expr, span)?;
         Ok(match kind {
-            ir::ExprKind::Var(idx) => idx,
+            ir::ExprKind::Var(local_idx, field_idxes) => {
+                if field_idxes.len() == 0 {
+                    return Ok(local_idx);
+                }
+                self.lookup_fields(local_idx, field_idxes, span)?
+            }
+            ir::ExprKind::Record {
+                ty: record_ty,
+                fields,
+            } => {
+                let idx = self.local_idxr.next();
+                self.field_map.insert(idx, fields.clone());
+                self.instructions.push(ir::Instruction {
+                    span,
+                    kind: ir::InstructionKind::Let {
+                        binding: idx,
+                        ty,
+                        expr: ir::Expr {
+                            local_idx: idx,
+                            span,
+                            kind: ir::ExprKind::Record {
+                                ty: record_ty,
+                                fields,
+                            },
+                        },
+                    },
+                });
+                idx
+            }
             _ => {
                 let idx = self.local_idxr.next();
                 self.instructions.push(ir::Instruction {
@@ -234,7 +329,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
             ast::Pattern::Literal(literal) => ir::PatternKind::Literal(*literal),
             ast::Pattern::Ident(ident) => {
                 let local_idx = self.local_idxr.next().with_span(pattern_span);
-                ctx.bind(ident, local_idx);
+                ctx.bind(ident, local_idx, None);
                 ir::PatternKind::Ident(local_idx)
             }
             ast::Pattern::Variant {
@@ -243,7 +338,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 bound,
             } => {
                 let local_idx = self.local_idxr.next().with_span(bound.span());
-                ctx.bind(&bound, local_idx);
+                ctx.bind(&bound, local_idx, None);
                 let ty = self.sess.tys.lookup(&enum_name, enum_name.span())?;
                 let discriminant = self
                     .sess
@@ -260,7 +355,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 let mut field_bindings = HashMap::new();
                 for (field, bound) in fields {
                     let local_idx = self.local_idxr.next().with_span(bound.span());
-                    ctx.bind(&bound, local_idx);
+                    ctx.bind(&bound, local_idx, Some(ty));
                     let field = self.sess.tys.lookup_field(ty, &field, field.span())?;
                     field_bindings.insert(field, local_idx);
                 }
@@ -294,7 +389,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     _ => None,
                 };
                 let idx = self.lower_expr(ty, expr, expr.span())?;
-                self.bind(&binder, idx);
+                self.bind(&binder, idx, ty);
                 self.lower_term(&body, body.span())
             }
             ast::Term::Match { source, arms } => {

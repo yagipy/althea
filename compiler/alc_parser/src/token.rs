@@ -38,6 +38,7 @@ pub enum Kind {
     U64Literal,
     Env,
     String,
+    Dot,
 }
 
 #[derive(Clone, Debug)]
