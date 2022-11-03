@@ -123,7 +123,7 @@ pub enum BinopKind {
 #[derive(Clone, Debug)]
 pub enum ExprKind {
     Literal(u64),
-    Var(LocalIdx),
+    Var(LocalIdx, Vec<FieldIdx>),
     Unop {
         kind: UnopKind,
         operand: LocalIdx,

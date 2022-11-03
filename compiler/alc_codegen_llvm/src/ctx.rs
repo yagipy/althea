@@ -115,7 +115,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
     fn compile_expr(&mut self, expr: &ir::Expr) -> Result<BasicValueEnum<'ctx>> {
         match &expr.kind {
             ir::ExprKind::Literal(literal) => Ok(self.context.i64_type().const_int(*literal, false).into()),
-            ir::ExprKind::Var(idx) => self.lookup(*idx),
+            ir::ExprKind::Var(local_idx, _) => self.lookup(*local_idx),
             ir::ExprKind::Unop { kind, operand } => self.compile_unop(expr.local_idx, *kind, *operand),
             ir::ExprKind::Binop { kind, left, right } => {
                 self.compile_binop(expr.local_idx, *kind, *left, *right)

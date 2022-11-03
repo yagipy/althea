@@ -120,7 +120,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
     fn check_expr_kind(&mut self, expr_kind: &ir::ExprKind, span: Span) -> Result<ty::Ty> {
         match expr_kind {
             ir::ExprKind::Literal(_) => Ok(self.ty_sess.make_u64()),
-            ir::ExprKind::Var(local_idx) => self.lookup(*local_idx),
+            ir::ExprKind::Var(local_idx, _) => self.lookup(*local_idx),
             ir::ExprKind::Unop { operand, .. } => {
                 // NOTE this is a bit of a hack, but at present the only unary operator only takes u64 types
                 if self.lookup(*operand)? != self.ty_sess.make_u64() {

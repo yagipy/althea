@@ -41,7 +41,7 @@ pub enum BinopKind {
 #[derive(Debug)]
 pub enum Expr {
     Literal(u64),
-    Var(Ident),
+    Var(Vec<Spanned<Ident>>),
     Unop {
         kind: Spanned<UnopKind>,
         operand: Spanned<Box<Expr>>,

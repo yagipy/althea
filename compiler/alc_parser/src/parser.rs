@@ -263,8 +263,19 @@ impl<'a> Parser<'a> {
                 struct_name: ident,
                 fields: fields.into_raw(),
             }))
+        } else if self.next_is(Kind::Dot) {
+            let mut vars = vec![ident];
+            while self.next_is(Kind::Dot) {
+                self.eat(Kind::Dot)?;
+                let field = self.next_ident()?;
+                vars.push(field);
+            }
+            let span = vars.first().unwrap().span().merge(vars.last().unwrap().span());
+            Ok(span.span(ast::Expr::Var(vars)))
         } else {
-            Ok(ident.span().span(ast::Expr::Var(ident.into_raw())))
+            Ok(ident
+                .span()
+                .span(ast::Expr::Var(vec![ident.span().span(ident.into_raw())])))
         }
     }
 

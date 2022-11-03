@@ -93,6 +93,7 @@ impl<'a> Iterator for Lexer<'a> {
                 }
                 _ => Kind::Eq.into(),
             },
+            '.' => Kind::Dot.into(),
             c => {
                 return Some(Err(Diagnostic::new_error(
                     "found invalid token",
@@ -172,7 +173,7 @@ impl<'a> Lexer<'a> {
         data.push(first);
         loop {
             match self.nth_char(0) {
-                c if c.is_alphanumeric() || c == '_' || c == '.' => {
+                c if c.is_alphanumeric() || c == '_' => {
                     data.push(c);
                     self.chars.next();
                 }

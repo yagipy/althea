@@ -111,7 +111,7 @@ impl<'ast> Lowering<'ast> {
         let mut param_bindings: IdxVec<ty::ParamIdx, ir::LocalIdx> = IdxVec::new();
         for binding in decl.params.iter() {
             let local_idx = local_idxr.next().with_span(binding.span());
-            if lcx.bind(&binding.binder, local_idx).is_some() {
+            if lcx.bind(&binding.binder, local_idx, None).is_some() {
                 return Err(Diagnostic::new_error(
                     "attempted to rebind formal parameter",
                     Label::new(
