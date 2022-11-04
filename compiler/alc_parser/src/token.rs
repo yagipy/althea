@@ -23,6 +23,7 @@ pub enum Kind {
     Struct,
     Enum,
     U64Ty,
+    StringTy,
     Eq,
     MatchArrow,
     Comma,
@@ -36,9 +37,10 @@ pub enum Kind {
     LCurl,
     RCurl,
     U64Literal,
+    StringLiteral,
     Env,
-    String,
     Dot,
+    Println,
 }
 
 #[derive(Clone, Debug)]

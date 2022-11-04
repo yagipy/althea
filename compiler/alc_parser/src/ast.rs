@@ -5,6 +5,7 @@ pub type Ident = String;
 #[derive(Debug)]
 pub enum Ty {
     U64,
+    String,
     TyName(Ident),
 }
 
@@ -40,7 +41,8 @@ pub enum BinopKind {
 
 #[derive(Debug)]
 pub enum Expr {
-    Literal(u64),
+    U64Literal(u64),
+    StringLiteral(String),
     Var(Vec<Spanned<Ident>>),
     Unop {
         kind: Spanned<UnopKind>,
@@ -68,7 +70,9 @@ pub enum Expr {
 
 #[derive(Debug)]
 pub enum Pattern {
-    Literal(u64),
+    U64Literal(u64),
+    StringLiteral(String),
+    // Literal(u64),
     Ident(Ident),
     Variant {
         enum_name: Spanned<Ident>,
@@ -97,6 +101,10 @@ pub enum Term {
         source: Spanned<Expr>,
         then: Box<Spanned<Term>>,
         otherwise: Box<Spanned<Term>>,
+    },
+    Println {
+        expr: Spanned<Expr>,
+        body: Box<Spanned<Term>>,
     },
     Return(Expr),
 }

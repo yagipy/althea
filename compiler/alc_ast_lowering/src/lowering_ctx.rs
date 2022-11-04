@@ -171,7 +171,8 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
 
     fn lower_expr_kind(&mut self, expr: &'ast ast::Expr, span: Span) -> Result<ir::ExprKind> {
         Ok(match expr {
-            ast::Expr::Literal(literal) => ir::ExprKind::Literal(*literal),
+            ast::Expr::U64Literal(literal) => ir::ExprKind::U64Literal(*literal),
+            ast::Expr::StringLiteral(literal) => ir::ExprKind::StringLiteral(literal.clone()),
             ast::Expr::Var(stream) => {
                 let (local_idx, ty) = self.lookup(stream.first().unwrap(), span)?;
                 if stream.len() == 1 {
@@ -326,7 +327,8 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
     ) -> Result<ir::Arm> {
         let mut ctx = self.mk_child();
         let pattern = match pattern {
-            ast::Pattern::Literal(literal) => ir::PatternKind::Literal(*literal),
+            ast::Pattern::U64Literal(literal) => ir::PatternKind::U64Literal(*literal),
+            ast::Pattern::StringLiteral(literal) => ir::PatternKind::StringLiteral(literal.clone()),
             ast::Pattern::Ident(ident) => {
                 let local_idx = self.local_idxr.next().with_span(pattern_span);
                 ctx.bind(ident, local_idx, None);
@@ -392,6 +394,14 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 self.bind(&binder, idx, ty);
                 self.lower_term(&body, body.span())
             }
+            ast::Term::Println { expr, body } => {
+                let idx = self.lower_expr(None, expr, expr.span())?;
+                self.instructions.push(ir::Instruction {
+                    span,
+                    kind: ir::InstructionKind::Println { idx },
+                });
+                self.lower_term(&body, body.span())
+            }
             ast::Term::Match { source, arms } => {
                 let source = self.lower_expr(None, source, source.span())?;
                 let mut lowered_arms = vec![];
@@ -414,7 +424,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     arms: vec![
                         ir::Arm {
                             span: otherwise.span(),
-                            pattern: ir::PatternKind::Literal(0),
+                            pattern: ir::PatternKind::U64Literal(0),
                             target: Box::new(
                                 self.mk_child()
                                     .lower_term_to_block(&otherwise, otherwise.span())?,

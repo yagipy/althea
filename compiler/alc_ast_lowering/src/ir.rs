@@ -122,7 +122,8 @@ pub enum BinopKind {
 
 #[derive(Clone, Debug)]
 pub enum ExprKind {
-    Literal(u64),
+    U64Literal(u64),
+    StringLiteral(String),
     Var(LocalIdx, Vec<FieldIdx>),
     Unop {
         kind: UnopKind,
@@ -157,7 +158,8 @@ pub struct Expr {
 
 #[derive(Clone, Debug)]
 pub enum PatternKind {
-    Literal(u64),
+    U64Literal(u64),
+    StringLiteral(String),
     Ident(LocalIdx),
     Variant {
         ty: Ty,
@@ -183,6 +185,9 @@ pub enum InstructionKind {
         binding: LocalIdx,
         ty: Option<Ty>,
         expr: Expr,
+    },
+    Println {
+        idx: LocalIdx,
     },
     Mark(LocalIdx, Ty),
     Unmark(LocalIdx, Ty),

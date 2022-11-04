@@ -7,7 +7,7 @@ func main() u64 {
     let foo: Foo = Foo {
         bar: 42,
         test: 32,
-    };
+    }
     //match foo {
     //    Foo {
     //        bar: bar,

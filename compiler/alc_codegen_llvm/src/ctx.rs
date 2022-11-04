@@ -1,8 +1,8 @@
-use crate::CodegenLLVM;
-use alc_ast_lowering::{ir, ty};
+use crate::{CodegenLLVM, ALC_RESET, PRINTF};
+use alc_ast_lowering::{idx::Idx, ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
-    values::{BasicValueEnum, FunctionValue, IntValue},
+    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, VectorValue},
     IntPredicate,
 };
 use std::{collections::HashMap, ops::Deref};
@@ -18,6 +18,7 @@ macro_rules! local {
 enum MatchCase<'ctx> {
     Wild,
     Record,
+    StringLiteral(VectorValue<'ctx>),
     Literal(IntValue<'ctx>),
     Variant(ty::Ty, IntValue<'ctx>),
 }
@@ -114,7 +115,13 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
 
     fn compile_expr(&mut self, expr: &ir::Expr) -> Result<BasicValueEnum<'ctx>> {
         match &expr.kind {
-            ir::ExprKind::Literal(literal) => Ok(self.context.i64_type().const_int(*literal, false).into()),
+            ir::ExprKind::U64Literal(literal) => {
+                Ok(self.context.i64_type().const_int(*literal, false).into())
+            }
+            ir::ExprKind::StringLiteral(literal) => Ok(self
+                .context
+                .const_string(literal.as_bytes(), false)
+                .as_basic_value_enum()),
             ir::ExprKind::Var(local_idx, _) => self.lookup(*local_idx),
             ir::ExprKind::Unop { kind, operand } => self.compile_unop(expr.local_idx, *kind, *operand),
             ir::ExprKind::Binop { kind, left, right } => {
@@ -165,6 +172,20 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 let compiled_expr = self.compile_expr(expr)?;
                 self.bind(*binding, compiled_expr);
             }
+            ir::InstructionKind::Println { idx } => {
+                let value = self.lookup(*idx).unwrap();
+                let const_ref = self.builder.build_alloca(value.get_type(), "printf_tmp");
+                self.builder.build_store(const_ref, value);
+                let ptr;
+                unsafe {
+                    ptr = self.sess.gep(const_ref, 0, "printf_tmp");
+                }
+                self.builder.build_call(
+                    self.module.get_function(PRINTF).unwrap(),
+                    &[ptr.as_basic_value_enum().into()],
+                    "printf",
+                );
+            }
             ir::InstructionKind::Mark(idx, ty) => {
                 // %a.mark := 1;
                 self.write_mark(self.lookup(*idx)?.into_pointer_value(), *ty, true);
@@ -209,7 +230,10 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
         pattern: &ir::PatternKind,
     ) -> MatchCase<'ctx> {
         match pattern {
-            ir::PatternKind::Literal(literal) => MatchCase::Literal(self.compile_literal(*literal)),
+            ir::PatternKind::U64Literal(literal) => MatchCase::Literal(self.compile_literal(*literal)),
+            ir::PatternKind::StringLiteral(literal) => {
+                MatchCase::StringLiteral(self.compile_string_literal(literal))
+            }
             ir::PatternKind::Ident(binding) => {
                 self.bind(*binding, source);
                 MatchCase::Wild
@@ -265,6 +289,11 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                         }
                         MatchCase::Literal(case) => {
                             cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
+                        MatchCase::StringLiteral(_) => {
+                            // TODO: support
+                            // cases.push((case, block));
                             self.compile_block(&arm.target)?;
                         }
                         MatchCase::Variant(ty, case) => {
