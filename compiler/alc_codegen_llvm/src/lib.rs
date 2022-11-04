@@ -11,7 +11,7 @@ use inkwell::{
     context::Context,
     module::Module,
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue},
+    values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue, VectorValue},
     AddressSpace,
 };
 use log::debug;
@@ -19,6 +19,7 @@ use std::path::Path;
 
 const ALC_FREE: &str = "alc_free";
 const ALC_RESET: &str = "alc_reset";
+const PRINTF: &str = "printf";
 
 pub fn generate<'a>(
     command_options: &'a CommandOptions,
@@ -87,6 +88,19 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn bind_reserved_functions(&self) {
         // TODO: GC
+        self.module.add_function(
+            PRINTF,
+            self.context.i32_type().fn_type(
+                &[self
+                    .context
+                    .i8_type()
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum()
+                    .into()],
+                false,
+            ),
+            None,
+        );
     }
 
     fn lookup_def(&self, def: ir::DefIdx, span: Span) -> Result<FunctionValue<'ctx>> {
@@ -134,6 +148,11 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     #[inline]
     fn compile_literal(&self, literal: u64) -> IntValue<'ctx> {
         self.context.i64_type().const_int(literal, false)
+    }
+
+    #[inline]
+    fn compile_string_literal(&self, literal: &str) -> VectorValue<'ctx> {
+        self.context.const_string(literal.as_bytes(), false)
     }
 
     #[inline]

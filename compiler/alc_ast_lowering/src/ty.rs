@@ -88,6 +88,7 @@ impl Idx for ParamIdx {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum TyKind {
     U64,
+    String,
     Enum(Enum),
     Struct(Struct),
     Fn(Prototype),
@@ -244,6 +245,10 @@ impl TySess {
 
     pub fn make_u64(&self) -> Ty {
         self.make_unique(TyKind::U64)
+    }
+
+    pub fn make_string(&self) -> Ty {
+        self.make_unique(TyKind::String)
     }
 
     pub fn make_fn(&self, return_ty: Ty, params: IdxVec<ParamIdx, Ty>) -> Ty {

@@ -160,7 +160,7 @@ impl<'a> Lexer<'a> {
         let mut data = String::new();
         loop {
             match self.chars.next()? {
-                '"' => break Some(Token::new(Kind::String, &data)),
+                '"' => break Some(Token::new(Kind::StringLiteral, &data)),
                 c => {
                     data.push(c);
                 }
@@ -189,10 +189,12 @@ impl<'a> Lexer<'a> {
             "struct" => Kind::Struct.into(),
             "enum" => Kind::Enum.into(),
             "u64" => Kind::U64Ty.into(),
+            "string" => Kind::StringTy.into(),
             "env" if self.nth_char(0) == '!' => {
                 self.chars.next();
                 Kind::Env.into()
             }
+            "println" => Kind::Println.into(),
             data => Token::new(Kind::Ident, data),
         }
     }

@@ -119,7 +119,8 @@ impl<'tcx> LocalTyCtx<'tcx> {
 
     fn check_expr_kind(&mut self, expr_kind: &ir::ExprKind, span: Span) -> Result<ty::Ty> {
         match expr_kind {
-            ir::ExprKind::Literal(_) => Ok(self.ty_sess.make_u64()),
+            ir::ExprKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
+            ir::ExprKind::StringLiteral(_) => Ok(self.ty_sess.make_string()),
             ir::ExprKind::Var(local_idx, _) => self.lookup(*local_idx),
             ir::ExprKind::Unop { operand, .. } => {
                 // NOTE this is a bit of a hack, but at present the only unary operator only takes u64 types
@@ -281,7 +282,8 @@ impl<'tcx> LocalTyCtx<'tcx> {
         span: Span,
     ) -> Result<ty::Ty> {
         match pattern_kind {
-            ir::PatternKind::Literal(_) => Ok(self.ty_sess.make_u64()),
+            ir::PatternKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
+            ir::PatternKind::StringLiteral(_) => Ok(self.ty_sess.make_string()),
             ir::PatternKind::Ident(binding) => {
                 self.bind(*binding, source_ty)?;
                 Ok(source_ty)
@@ -346,6 +348,19 @@ impl<'tcx> LocalTyCtx<'tcx> {
                         self.bind(*binding, bound_ty)?;
                     }
                 }
+            }
+            ir::InstructionKind::Println { idx: _ } => {
+                // let expr_ty = self.check_expr(expr)?;
+                // if expr_ty != self.ty_sess.make_string() {
+                //     return Err(Diagnostic::new_error(
+                //         "type mismatch",
+                //         Label::new(
+                //             self.file_id,
+                //             expr.span(),
+                //             "println! can only be used with string literals",
+                //         ),
+                //     ));
+                // }
             }
             ir::InstructionKind::Mark(local_idx, ty)
             | ir::InstructionKind::Unmark(local_idx, ty)

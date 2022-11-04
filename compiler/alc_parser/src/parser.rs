@@ -223,9 +223,16 @@ impl<'a> Parser<'a> {
             .span(self.unpack_literal(token.value().unwrap(), token.span())?))
     }
 
+    fn next_string_literal(&mut self) -> Result<Spanned<String>> {
+        let token = self.eat(Kind::StringLiteral)?;
+        Ok(token.span().span(token.value().unwrap().to_string()))
+    }
+
     fn next_ty(&mut self) -> Result<Spanned<ast::Ty>> {
         if self.next_is(Kind::U64Ty) {
             Ok(self.eat(Kind::U64Ty)?.span().span(ast::Ty::U64))
+        } else if self.next_is(Kind::StringTy) {
+            Ok(self.eat(Kind::StringTy)?.span().span(ast::Ty::String))
         } else {
             let ident = self.next_ident()?;
             Ok(ident.span().span(ast::Ty::TyName(ident.into_raw())))
@@ -283,7 +290,7 @@ impl<'a> Parser<'a> {
         if self.next_is(Kind::Env) {
             let span = self.eat(Kind::Env)?.span();
             self.eat(Kind::LParen)?;
-            let env = self.eat(Kind::String)?;
+            let env = self.eat(Kind::StringLiteral)?;
             let span = span.merge(self.eat(Kind::RParen)?.span());
             let expanded = env::var(env.value().unwrap()).map_err(|_| {
                 Diagnostic::new_error(
@@ -295,11 +302,13 @@ impl<'a> Parser<'a> {
                     ),
                 )
             })?;
-            let expanded = self.unpack_literal(&expanded, span)?;
-            Ok(span.span(ast::Expr::Literal(expanded)))
+            Ok(span.span(ast::Expr::StringLiteral(expanded)))
         } else if self.next_is(Kind::U64Literal) {
             let literal = self.next_literal()?;
-            Ok(literal.span().span(ast::Expr::Literal(literal.into_raw())))
+            Ok(literal.span().span(ast::Expr::U64Literal(literal.into_raw())))
+        } else if self.next_is(Kind::StringLiteral) {
+            let literal = self.next_string_literal()?;
+            Ok(literal.span().span(ast::Expr::StringLiteral(literal.into_raw())))
         } else if self.next_is(Kind::LParen) {
             self.eat(Kind::LParen)?;
             let expr = self.next_expr()?;
@@ -361,7 +370,12 @@ impl<'a> Parser<'a> {
     fn next_pattern(&mut self) -> Result<Spanned<ast::Pattern>> {
         if self.next_is(Kind::U64Literal) {
             let literal = self.next_literal()?;
-            Ok(literal.span().span(ast::Pattern::Literal(literal.into_raw())))
+            Ok(literal.span().span(ast::Pattern::U64Literal(literal.into_raw())))
+        } else if self.next_is(Kind::StringLiteral) {
+            let literal = self.next_string_literal()?;
+            Ok(literal
+                .span()
+                .span(ast::Pattern::StringLiteral(literal.into_raw())))
         } else if self.next_is(Kind::Ident) {
             let ident = self.next_ident()?;
             if self.next_is(Kind::Separator) {
@@ -403,11 +417,21 @@ impl<'a> Parser<'a> {
             let annotation = self.next_ty_annotation()?;
             self.eat(Kind::Eq)?;
             let expr = self.next_expr()?;
-            self.eat(Kind::Semi)?;
             let body = self.next_term()?;
             Ok(span.merge(body.span()).span(ast::Term::Let {
                 binder,
                 annotation,
+                expr,
+                body: Box::new(body),
+            }))
+        } else if self.next_is(Kind::Println) {
+            let span = self.eat(Kind::Println)?.span();
+            self.eat(Kind::LParen)?;
+            let expr = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            // self.eat(Kind::Semi)?;
+            let body = self.next_term()?;
+            Ok(span.merge(body.span()).span(ast::Term::Println {
                 expr,
                 body: Box::new(body),
             }))

@@ -12,6 +12,7 @@ pub struct TyLowering<'ast> {
     file_id: FileId,
     ty_sess: ty::TySess,
     u64_ty: ty::Ty,
+    string_ty: ty::Ty,
     tys: HashMap<&'ast ast::Ident, ty::Ty>,
     variants: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::VariantIdx>>,
     fields: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::FieldIdx>>,
@@ -21,11 +22,13 @@ impl<'ast> TyLowering<'ast> {
     pub fn new(command_options: &'ast CommandOptions, file_id: FileId) -> TyLowering<'ast> {
         let ty_sess = ty::TySess::new();
         let u64_ty = ty_sess.make_u64();
+        let string_ty = ty_sess.make_string();
         TyLowering {
             command_options,
             file_id,
             ty_sess,
             u64_ty,
+            string_ty,
             tys: HashMap::new(),
             variants: HashMap::new(),
             fields: HashMap::new(),
@@ -157,6 +160,7 @@ impl<'ast> TyLowering<'ast> {
     pub fn lookup_ty(&self, ty: &'ast ast::Ty, span: Span) -> Result<ty::Ty> {
         match ty {
             ast::Ty::U64 => Ok(self.u64_ty),
+            ast::Ty::String => Ok(self.string_ty),
             ast::Ty::TyName(ident) => self.lookup(ident, span),
         }
     }
