@@ -482,8 +482,13 @@ impl<'a> Parser<'a> {
             self.eat(Kind::MatchArrow)?;
             arms.push((pattern, Box::new(self.next_match_arm_body()?)));
         }
-        let span = span.merge(self.eat(Kind::RCurl)?.span());
-        Ok(span.span(ast::Term::Match { source, arms }))
+        let body = self.next_term()?;
+        // let span = span.merge(self.eat(Kind::RCurl)?.span());
+        Ok(span.merge(body.span()).span(ast::Term::Match {
+            source,
+            arms,
+            body: Box::new(body),
+        }))
     }
 
     fn next_if_term(&mut self) -> Result<Spanned<ast::Term>> {
@@ -496,11 +501,12 @@ impl<'a> Parser<'a> {
         } else {
             self.next_block()?
         });
-        let span = span.merge(otherwise.span());
-        Ok(span.span(ast::Term::If {
+        let body = self.next_term()?;
+        Ok(span.merge(body.span()).span(ast::Term::If {
             source,
             then,
             otherwise,
+            body: Box::new(body),
         }))
     }
 

@@ -8,9 +8,12 @@ func main() u64 {
         bar: 42,
         test: 32,
     }
+    let x = 0
     if foo.bar {
-        foo.bar
+        let x = foo.bar
+        x
     } else {
         foo.test
     }
+    x
 }

@@ -172,7 +172,7 @@ pub enum PatternKind {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Arm {
     pub span: Span,
     pub pattern: PatternKind,
@@ -189,6 +189,10 @@ pub enum InstructionKind {
     Println {
         idx: LocalIdx,
     },
+    Match {
+        source: LocalIdx,
+        arms: Vec<Arm>,
+    },
     Mark(LocalIdx, Ty),
     Unmark(LocalIdx, Ty),
     Free(LocalIdx, Ty),
@@ -201,13 +205,13 @@ pub struct Instruction {
     pub span: Span,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Terminator {
     Return(LocalIdx),
-    Match { source: LocalIdx, arms: Vec<Arm> },
+    // Match { source: LocalIdx, arms: Vec<Arm> },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Block {
     pub owner: DefIdx,
     pub block_idx: BlockIdx,

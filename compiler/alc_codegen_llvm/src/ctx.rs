@@ -186,6 +186,63 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                     "printf",
                 );
             }
+            ir::InstructionKind::Match { source, arms } => {
+                let source = self.lookup(*source)?;
+                let origin = self.builder.get_insert_block().unwrap();
+                let mut source_ty = None;
+                let mut else_block = None;
+                let mut cases = vec![];
+                for (i, arm) in arms.iter().enumerate() {
+                    let block = if let ir::PatternKind::Record { .. } = &arm.pattern {
+                        origin
+                    } else {
+                        self.context.append_basic_block(self.llvm, &format!("arm_{}", i))
+                    };
+                    self.builder.position_at_end(block);
+                    match self.compile_pattern(source, &arm.pattern) {
+                        MatchCase::Wild => {
+                            else_block = Some(block);
+                            self.compile_block(&arm.target)?;
+                            break;
+                        }
+                        MatchCase::Record => {
+                            self.compile_block(&arm.target)?;
+                            return Ok(());
+                        }
+                        MatchCase::Literal(case) => {
+                            cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
+                        MatchCase::StringLiteral(_) => {
+                            // TODO: support
+                            // cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
+                        MatchCase::Variant(ty, case) => {
+                            source_ty = Some(ty);
+                            cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
+                    }
+                }
+                let else_block = match else_block {
+                    Some(block) => block,
+                    _ => {
+                        let block = self.context.append_basic_block(self.llvm, "unreachable_else");
+                        self.builder.position_at_end(block);
+                        self.builder.build_unreachable();
+                        block
+                    }
+                };
+                self.builder.position_at_end(origin);
+                let source = if let Some(ty) = source_ty {
+                    self.read_enum_discriminant(source.into_pointer_value(), ty)?
+                } else {
+                    source
+                }
+                    .into_int_value();
+                self.builder.build_switch(source, else_block, cases.as_slice());
+            }
             ir::InstructionKind::Mark(idx, ty) => {
                 // %a.mark := 1;
                 self.write_mark(self.lookup(*idx)?.into_pointer_value(), *ty, true);
@@ -264,63 +321,63 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
             ir::Terminator::Return(local_idx) => {
                 self.builder.build_return(Some(&self.lookup(*local_idx)?));
             }
-            ir::Terminator::Match { source, arms } => {
-                let source = self.lookup(*source)?;
-                let origin = self.builder.get_insert_block().unwrap();
-                let mut source_ty = None;
-                let mut else_block = None;
-                let mut cases = vec![];
-                for (i, arm) in arms.iter().enumerate() {
-                    let block = if let ir::PatternKind::Record { .. } = &arm.pattern {
-                        origin
-                    } else {
-                        self.context.append_basic_block(self.llvm, &format!("arm_{}", i))
-                    };
-                    self.builder.position_at_end(block);
-                    match self.compile_pattern(source, &arm.pattern) {
-                        MatchCase::Wild => {
-                            else_block = Some(block);
-                            self.compile_block(&arm.target)?;
-                            break;
-                        }
-                        MatchCase::Record => {
-                            self.compile_block(&arm.target)?;
-                            return Ok(());
-                        }
-                        MatchCase::Literal(case) => {
-                            cases.push((case, block));
-                            self.compile_block(&arm.target)?;
-                        }
-                        MatchCase::StringLiteral(_) => {
-                            // TODO: support
-                            // cases.push((case, block));
-                            self.compile_block(&arm.target)?;
-                        }
-                        MatchCase::Variant(ty, case) => {
-                            source_ty = Some(ty);
-                            cases.push((case, block));
-                            self.compile_block(&arm.target)?;
-                        }
-                    }
-                }
-                let else_block = match else_block {
-                    Some(block) => block,
-                    _ => {
-                        let block = self.context.append_basic_block(self.llvm, "unreachable_else");
-                        self.builder.position_at_end(block);
-                        self.builder.build_unreachable();
-                        block
-                    }
-                };
-                self.builder.position_at_end(origin);
-                let source = if let Some(ty) = source_ty {
-                    self.read_enum_discriminant(source.into_pointer_value(), ty)?
-                } else {
-                    source
-                }
-                .into_int_value();
-                self.builder.build_switch(source, else_block, cases.as_slice());
-            }
+            // ir::Terminator::Match { source, arms } => {
+            //     let source = self.lookup(*source)?;
+            //     let origin = self.builder.get_insert_block().unwrap();
+            //     let mut source_ty = None;
+            //     let mut else_block = None;
+            //     let mut cases = vec![];
+            //     for (i, arm) in arms.iter().enumerate() {
+            //         let block = if let ir::PatternKind::Record { .. } = &arm.pattern {
+            //             origin
+            //         } else {
+            //             self.context.append_basic_block(self.llvm, &format!("arm_{}", i))
+            //         };
+            //         self.builder.position_at_end(block);
+            //         match self.compile_pattern(source, &arm.pattern) {
+            //             MatchCase::Wild => {
+            //                 else_block = Some(block);
+            //                 self.compile_block(&arm.target)?;
+            //                 break;
+            //             }
+            //             MatchCase::Record => {
+            //                 self.compile_block(&arm.target)?;
+            //                 return Ok(());
+            //             }
+            //             MatchCase::Literal(case) => {
+            //                 cases.push((case, block));
+            //                 self.compile_block(&arm.target)?;
+            //             }
+            //             MatchCase::StringLiteral(_) => {
+            //                 // TODO: support
+            //                 // cases.push((case, block));
+            //                 self.compile_block(&arm.target)?;
+            //             }
+            //             MatchCase::Variant(ty, case) => {
+            //                 source_ty = Some(ty);
+            //                 cases.push((case, block));
+            //                 self.compile_block(&arm.target)?;
+            //             }
+            //         }
+            //     }
+            //     let else_block = match else_block {
+            //         Some(block) => block,
+            //         _ => {
+            //             let block = self.context.append_basic_block(self.llvm, "unreachable_else");
+            //             self.builder.position_at_end(block);
+            //             self.builder.build_unreachable();
+            //             block
+            //         }
+            //     };
+            //     self.builder.position_at_end(origin);
+            //     let source = if let Some(ty) = source_ty {
+            //         self.read_enum_discriminant(source.into_pointer_value(), ty)?
+            //     } else {
+            //         source
+            //     }
+            //     .into_int_value();
+            //     self.builder.build_switch(source, else_block, cases.as_slice());
+            // }
         }
         Ok(())
     }

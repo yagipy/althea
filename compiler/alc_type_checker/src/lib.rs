@@ -416,24 +416,24 @@ impl<'tcx> LocalTyCtx<'tcx> {
                     Ok(())
                 }
             }
-            ir::Terminator::Match { source, arms } => {
-                let source_ty = self.lookup(*source)?;
-                for arm in arms.iter() {
-                    let pattern_ty = self.check_pattern(source_ty, &arm.pattern, arm.span)?;
-                    if pattern_ty != source_ty {
-                        return Err(Diagnostic::new_error(
-                            "type mismatch",
-                            Label::new(
-                                self.file_id,
-                                source.span(),
-                                "match arm contains pattern with type incompatible with that of the match source",
-                            ),
-                        ));
-                    }
-                    self.check_block(&arm.target)?;
-                }
-                Ok(())
-            }
+            // ir::Terminator::Match { source, arms } => {
+            //     let source_ty = self.lookup(*source)?;
+            //     for arm in arms.iter() {
+            //         let pattern_ty = self.check_pattern(source_ty, &arm.pattern, arm.span)?;
+            //         if pattern_ty != source_ty {
+            //             return Err(Diagnostic::new_error(
+            //                 "type mismatch",
+            //                 Label::new(
+            //                     self.file_id,
+            //                     source.span(),
+            //                     "match arm contains pattern with type incompatible with that of the match source",
+            //                 ),
+            //             ));
+            //         }
+            //         self.check_block(&arm.target)?;
+            //     }
+            //     Ok(())
+            // }
         }
     }
 

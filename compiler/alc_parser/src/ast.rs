@@ -68,11 +68,14 @@ pub enum Expr {
     },
 }
 
+// pub enum Stmt {
+//
+// }
+
 #[derive(Debug)]
 pub enum Pattern {
     U64Literal(u64),
     StringLiteral(String),
-    // Literal(u64),
     Ident(Ident),
     Variant {
         enum_name: Spanned<Ident>,
@@ -96,11 +99,13 @@ pub enum Term {
     Match {
         source: Spanned<Expr>,
         arms: Vec<(Spanned<Pattern>, Box<Spanned<Term>>)>,
+        body: Box<Spanned<Term>>,
     },
     If {
         source: Spanned<Expr>,
         then: Box<Spanned<Term>>,
         otherwise: Box<Spanned<Term>>,
+        body: Box<Spanned<Term>>,
     },
     Println {
         expr: Spanned<Expr>,

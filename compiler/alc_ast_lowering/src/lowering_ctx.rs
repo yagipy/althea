@@ -8,6 +8,7 @@ use crate::{
 use alc_diagnostic::{Diagnostic, Label, Result, Span};
 use alc_parser::ast;
 use std::collections::HashMap;
+use std::thread::sleep;
 
 #[derive(Debug)]
 pub(super) struct LoweringCtx<'lcx, 'ast> {
@@ -402,43 +403,58 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 });
                 self.lower_term(&body, body.span())
             }
-            ast::Term::Match { source, arms } => {
+            ast::Term::Match {
+                source,
+                arms,
+                body,
+            } => {
                 let source = self.lower_expr(None, source, source.span())?;
                 let mut lowered_arms = vec![];
                 for (pattern, body) in arms.iter() {
                     lowered_arms.push(self.lower_arm(&pattern, &body, pattern.span(), body.span())?);
                 }
-                Ok(ir::Terminator::Match {
-                    source,
-                    arms: lowered_arms,
-                })
+                self.instructions.push(ir::Instruction {
+                    span,
+                    kind: ir::InstructionKind::Match {
+                        source,
+                        arms: lowered_arms,
+                    }
+                });
+                self.lower_term(&body, body.span())
             }
             ast::Term::If {
                 source,
                 then,
                 otherwise,
+                body
             } => {
                 let source = self.lower_expr(None, source, source.span())?;
-                Ok(ir::Terminator::Match {
-                    source,
-                    arms: vec![
-                        ir::Arm {
-                            span: otherwise.span(),
-                            pattern: ir::PatternKind::U64Literal(0),
-                            target: Box::new(
-                                self.mk_child()
-                                    .lower_term_to_block(&otherwise, otherwise.span())?,
-                            ),
-                        },
-                        ir::Arm {
-                            span: then.span(),
-                            pattern: ir::PatternKind::Ident(self.local_idxr.next().with_span(source.span())),
-                            target: Box::new(self.mk_child().lower_term_to_block(&then, then.span())?),
-                        },
-                    ],
-                })
+                self.instructions.push(ir::Instruction {
+                    span,
+                    kind: ir::InstructionKind::Match {
+                        source,
+                        arms: vec![
+                            ir::Arm {
+                                span: otherwise.span(),
+                                pattern: ir::PatternKind::U64Literal(0),
+                                target: Box::new(
+                                    self.mk_child()
+                                        .lower_term_to_block(&otherwise, otherwise.span())?,
+                                ),
+                            },
+                            ir::Arm {
+                                span: then.span(),
+                                pattern: ir::PatternKind::Ident(self.local_idxr.next().with_span(source.span())),
+                                target: Box::new(self.mk_child().lower_term_to_block(&then, then.span())?),
+                            },
+                        ],
+                    }
+                });
+                self.lower_term(&body, body.span())
             }
-            ast::Term::Return(expr) => Ok(ir::Terminator::Return(self.lower_expr(None, expr, span)?)),
+            ast::Term::Return(expr) => {
+                Ok(ir::Terminator::Return(self.lower_expr(None, expr, span)?))
+            },
         }
     }
 
