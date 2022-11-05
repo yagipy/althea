@@ -2,8 +2,7 @@ use std::path::PathBuf;
 use structopt::{clap::arg_enum, StructOpt};
 
 pub fn parse_args() -> CommandOptions {
-    let command_options = CommandOptions::from_args();
-    command_options
+    CommandOptions::from_args()
 }
 
 arg_enum! {
@@ -18,7 +17,7 @@ arg_enum! {
 pub struct CommandOptions {
     #[structopt(parse(from_os_str))]
     pub src: PathBuf,
-    #[structopt(short = "o", long, parse(from_os_str), default_value = "out.ll")]
+    #[structopt(short = "o", long, parse(from_os_str), default_value = "out")]
     pub out: PathBuf,
     #[structopt(long = "gc", default_value = "none")]
     pub gc: Gc,

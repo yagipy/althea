@@ -10,12 +10,14 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
+    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType},
     values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue, VectorValue},
     AddressSpace,
+    OptimizationLevel,
 };
 use log::debug;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const ALC_FREE: &str = "alc_free";
 const ALC_RESET: &str = "alc_reset";
@@ -78,7 +80,9 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 Label::new(file_id, Span::dummy(), &format!("{}", err)),
             )
         })?;
-        ctx.write_to_ll_file(&ctx.command_options.out)
+        ctx.write_to_ll_file(&ctx.command_options.out)?;
+        let obj_file = ctx.write_to_obj_file(&ctx.command_options.out)?;
+        ctx.execute_linker(obj_file)
     }
 
     fn bind_def(&self, def: &ir::Def) -> FunctionValue<'ctx> {
@@ -371,11 +375,93 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     }
 
     fn write_to_ll_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let mut output_path = PathBuf::from(path.as_ref());
+        output_path.set_extension("ll");
+
         self.module.print_to_file(path).map_err(|e| {
             Diagnostic::new_error(
                 "failed to write LLVM IR to file",
                 Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
             )
         })
+    }
+
+    fn write_to_obj_file<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
+        let target_machine = self.get_target_machine();
+
+        let mut output_path = PathBuf::from(path.as_ref());
+        output_path.set_extension("o");
+
+        let compile_result = target_machine
+            .unwrap()
+            .write_to_file(self.module, FileType::Object, output_path.as_path())
+            .map_err(|e| {
+                Diagnostic::new_error(
+                    "failed to write object file",
+                    Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
+                )
+            });
+
+        match compile_result {
+            Ok(_) => Ok(output_path),
+            Err(diagnostic) => Err(diagnostic),
+        }
+    }
+
+    fn get_target_machine(&self) -> Result<TargetMachine> {
+        Target::initialize_native(&InitializationConfig::default()).unwrap();
+        let triple = TargetMachine::get_default_triple();
+        let target = Target::from_triple(&triple).unwrap();
+        let cpu = TargetMachine::get_host_cpu_name();
+        let features = TargetMachine::get_host_cpu_features();
+
+        let opt_level = OptimizationLevel::Default;
+        let reloc_mode = RelocMode::Default;
+        let code_model = CodeModel::Default;
+
+        target
+            .create_target_machine(
+                &triple,
+                cpu.to_string().as_str(),
+                features.to_string().as_str(),
+                opt_level,
+                reloc_mode,
+                code_model,
+            )
+            .ok_or_else(|| {
+                Diagnostic::new_error(
+                    "failed to get target machine",
+                    Label::new(self.file_id, Span::dummy(), ""),
+                )
+            })
+    }
+
+    fn execute_linker<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let cc = std::env::var("CC").unwrap_or_else(|_| "gcc".into());
+        let extension = if cfg!(windows) { "exe" } else { "" };
+
+        let mut output_path = PathBuf::from(path.as_ref());
+        output_path.set_extension(extension);
+
+        let command_output = std::process::Command::new(cc)
+            .args(vec![
+                path.as_ref().as_os_str(),
+                std::ffi::OsStr::new("-o"),
+                output_path.as_os_str(),
+            ])
+            .output()
+            .unwrap();
+
+        let status = command_output.status.code().unwrap();
+        let stderr = String::from_utf8(command_output.stderr).unwrap();
+
+        if status != 0 {
+            return Err(Diagnostic::new_error(
+                "failed to execute linker",
+                Label::new(self.file_id, Span::dummy(), stderr),
+            ));
+        }
+
+        Ok(())
     }
 }
