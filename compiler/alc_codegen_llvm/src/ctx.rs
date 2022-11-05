@@ -1,8 +1,8 @@
-use crate::{CodegenLLVM, ALC_RESET, PRINTF};
-use alc_ast_lowering::{idx::Idx, ir, ty};
+use crate::{CodegenLLVM, PRINTF};
+use alc_ast_lowering::{ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
-    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, IntValue, VectorValue},
+    values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, VectorValue},
     IntPredicate,
 };
 use std::{collections::HashMap, ops::Deref};
