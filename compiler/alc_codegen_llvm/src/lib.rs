@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 const ALC_FREE: &str = "alc_free";
 const ALC_RESET: &str = "alc_reset";
-const PRINTF: &str = "printf";
+const PRINTF: &str = "puts";
 
 pub fn generate<'a>(
     command_options: &'a CommandOptions,
@@ -178,7 +178,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     #[inline]
     unsafe fn gep(&self, ptr: PointerValue<'ctx>, idx: u64, name: &str) -> PointerValue<'ctx> {
-        self.builder.build_gep(
+        self.builder.build_in_bounds_gep(
             ptr,
             &[
                 self.context.i32_type().const_int(0, false),

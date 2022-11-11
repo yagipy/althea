@@ -1,4 +1,13 @@
-use crate::{idx::Idxr, idx_vec::IdxVec, ir, lowering_ctx::LoweringCtx, ty, TyLowering, RESERVED_NAMES};
+use crate::{
+    idx::Idxr,
+    idx_vec::IdxVec,
+    ir,
+    lowering_ctx::LoweringCtx,
+    ty,
+    ty::Ty,
+    TyLowering,
+    RESERVED_NAMES,
+};
 use alc_diagnostic::{Diagnostic, FileId, Label, Result, Span};
 use alc_parser::ast;
 use std::collections::HashMap;
@@ -111,6 +120,7 @@ impl<'ast> Lowering<'ast> {
         let mut param_bindings: IdxVec<ty::ParamIdx, ir::LocalIdx> = IdxVec::new();
         for binding in decl.params.iter() {
             let local_idx = local_idxr.next().with_span(binding.span());
+            // let ty = self.tys.lookup_ty(&binding.ty, binding.ty.span());
             if lcx.bind(&binding.binder, local_idx, None).is_some() {
                 return Err(Diagnostic::new_error(
                     "attempted to rebind formal parameter",

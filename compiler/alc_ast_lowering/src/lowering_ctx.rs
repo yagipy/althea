@@ -175,11 +175,13 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
             ast::Expr::StringLiteral(literal) => ir::ExprKind::StringLiteral(literal.clone()),
             ast::Expr::Var(stream) => {
                 let (local_idx, ty) = self.lookup(stream.first().unwrap(), span)?;
+                // println!("paniced stream, local_idx: {:?}, ty: {:?}", local_idx, ty);
                 if stream.len() == 1 {
                     return Ok(ir::ExprKind::Var(local_idx, vec![]));
                 }
                 let mut field_idxes = vec![];
                 for field in stream.iter().skip(1) {
+                    // println!("paniced args: {:?}, {:?}", ty, field);
                     let field_idx = self.sess.tys.lookup_field(ty.unwrap(), field, field.span())?;
                     field_idxes.push(field_idx);
                 }
