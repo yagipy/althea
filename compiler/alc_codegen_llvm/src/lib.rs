@@ -166,6 +166,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     #[inline]
     fn read_param(&self, function: FunctionValue<'ctx>, idx: ty::ParamIdx) -> BasicValueEnum<'ctx> {
+        // TODO: ここでエラー
         if let Some(param) = function.get_nth_param(idx.index() as u32) {
             param
         } else {

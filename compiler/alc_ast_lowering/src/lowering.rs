@@ -11,6 +11,8 @@ use crate::{
 use alc_diagnostic::{Diagnostic, FileId, Label, Result, Span};
 use alc_parser::ast;
 use std::collections::HashMap;
+use std::slice::SliceIndex;
+use crate::idx_vec::IntoIdxVec;
 
 #[derive(Debug)]
 pub struct Lowering<'ast> {
@@ -119,9 +121,10 @@ impl<'ast> Lowering<'ast> {
         let mut param_tys = IdxVec::new();
         let mut param_bindings: IdxVec<ty::ParamIdx, ir::LocalIdx> = IdxVec::new();
         for binding in decl.params.iter() {
+            let ty = self.tys.lookup_ty(&binding.ty, binding.ty.span())?;
             let local_idx = local_idxr.next().with_span(binding.span());
-            // let ty = self.tys.lookup_ty(&binding.ty, binding.ty.span());
-            if lcx.bind(&binding.binder, local_idx, None).is_some() {
+
+            if lcx.bind(&binding.binder, local_idx, Some(ty)).is_some() {
                 return Err(Diagnostic::new_error(
                     "attempted to rebind formal parameter",
                     Label::new(
@@ -133,6 +136,20 @@ impl<'ast> Lowering<'ast> {
             }
             param_bindings.push(local_idx.with_span(binding.span()));
             param_tys.push(self.tys.lookup_ty(&binding.ty, binding.ty.span())?);
+
+            // if self.tys.ty_sess().ty_kind(ty).is_struct() {
+            //     let mut field_binding = HashMap::new();
+            //     for field_idx in self.tys.lookup_fields(ty, binding.ty.span())? {
+            //         let local_idx = local_idxr.next().with_span(binding.ty.span());
+            //         field_binding.insert(field_idx, local_idx);
+            //         param_bindings.push(local_idx.with_span(binding.span()));
+            //         param_tys.push(self.tys.ty_sess().ty_kind(ty).field_ty(field_idx).unwrap());
+            //     }
+            //     lcx.bind_field(local_idx, field_binding.into_idx_vec().ok_or(Diagnostic::new_error(
+            //         "field binding is empty",
+            //         Label::new(self.file_id, binding.ty.span(), "field binding is empty"),
+            //     ))?);
+            // }
         }
         let return_ty = self.tys.lookup_ty(&decl.return_ty, decl.return_ty.span())?;
         Ok(ir::Def {

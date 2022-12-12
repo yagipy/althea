@@ -227,6 +227,21 @@ impl<'ast> TyLowering<'ast> {
         }
     }
 
+    pub fn lookup_fields(&self, ty: ty::Ty, span: Span) -> Result<Vec<ty::FieldIdx>> {
+        if let Some(fields) = self.fields.get(&ty) {
+            Ok(fields.values().copied().collect())
+        } else {
+            Err(Diagnostic::new_error(
+                "type usage error",
+                Label::new(
+                    self.file_id,
+                    span,
+                    "can't reference fields of a type that is not a struct",
+                ),
+            ))
+        }
+    }
+
     pub fn ty_sess(&self) -> &ty::TySess {
         &self.ty_sess
     }

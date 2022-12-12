@@ -122,11 +122,13 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
         field_idxes: Vec<ty::FieldIdx>,
         span: Span,
     ) -> Result<ir::LocalIdx> {
-        let mut root_local_idx = self
-            .lookup_field(local_idx, *field_idxes.first().unwrap(), span)
-            .unwrap();
+        println!("lookup_fields, local_idx: {:?}, field_idxes: {:?}", local_idx, field_idxes.first().unwrap());
+        println!("lookup_fields, local_map: {:?}", self.local_map);
+        println!("lookup_fields, field_map: {:?}", self.field_map);
+        println!("lookup_fields, parent: {:?}", self.parent);
+        let mut root_local_idx = self.lookup_field(local_idx, *field_idxes.first().unwrap(), span)?;
         for field_idx in field_idxes.into_iter().skip(1) {
-            root_local_idx = self.lookup_field(root_local_idx, field_idx, span).unwrap();
+            root_local_idx = self.lookup_field(root_local_idx, field_idx, span)?;
         }
         Ok(root_local_idx)
     }
@@ -137,8 +139,26 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
         ident: &'ast ast::Ident,
         local_idx: ir::LocalIdx,
         ty: Option<ty::Ty>,
+        // ast_ty: Option<&'ast ast::Ty>,
     ) -> Option<(ir::LocalIdx, Option<ty::Ty>)> {
+        // if let ast::Ty::TyName(ident) = ast_ty {
+        //     let mut field_binding = IdxVec::new();
+        //     for (field_idx, field_ty) in struct_ty.fields.iter().enumerate() {
+        //         let field_local_idx = self.local_idxr.next();
+        //         field_binding.push(field_local_idx);
+        //     }
+        //     self.field_map.insert(local_idx, field_binding);
+        // }
         self.local_map.insert(ident, (local_idx, ty))
+    }
+
+    #[inline]
+    pub(super) fn bind_field(
+        &mut self,
+        local_idx: ir::LocalIdx,
+        field_map: IdxVec<ty::FieldIdx, ir::LocalIdx>,
+    ) -> Option<IdxVec<ty::FieldIdx, ir::LocalIdx>> {
+        self.field_map.insert(local_idx, field_map)
     }
 
     #[inline]
@@ -175,13 +195,11 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
             ast::Expr::StringLiteral(literal) => ir::ExprKind::StringLiteral(literal.clone()),
             ast::Expr::Var(stream) => {
                 let (local_idx, ty) = self.lookup(stream.first().unwrap(), span)?;
-                // println!("paniced stream, local_idx: {:?}, ty: {:?}", local_idx, ty);
                 if stream.len() == 1 {
                     return Ok(ir::ExprKind::Var(local_idx, vec![]));
                 }
                 let mut field_idxes = vec![];
                 for field in stream.iter().skip(1) {
-                    // println!("paniced args: {:?}, {:?}", ty, field);
                     let field_idx = self.sess.tys.lookup_field(ty.unwrap(), field, field.span())?;
                     field_idxes.push(field_idx);
                 }

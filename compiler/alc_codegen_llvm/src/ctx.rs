@@ -328,6 +328,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
     fn compile_entry(&mut self, entry: &ir::Entry) -> Result<()> {
         let entry_block = self.context.append_basic_block(self.llvm, "entry");
         self.builder.position_at_end(entry_block);
+        // TODO: support struct
         for (param_idx, binding) in entry.param_bindings.iter() {
             self.bind(*binding, self.read_param(self.llvm, param_idx));
         }
