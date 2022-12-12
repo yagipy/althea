@@ -29,15 +29,17 @@ struct TyCtx<'tcx> {
 impl<'tcx> TyCtx<'tcx> {
     fn bind(&mut self, idx: ir::DefIdx, ty: ty::Ty, span: Span) -> Result<()> {
         if let Some((other_span, other_ty)) = self.tys.insert(idx, (span, ty)) {
-            return Err(Box::from(Diagnostic::new_error(
-                "could not infer single type for value",
-                Label::new(self.file_id, span, &format!("attempted to rebind as {:?}", ty)),
-            )
+            return Err(Box::from(
+                Diagnostic::new_error(
+                    "could not infer single type for value",
+                    Label::new(self.file_id, span, &format!("attempted to rebind as {:?}", ty)),
+                )
                 .with_secondary_labels(vec![Label::new(
                     self.file_id,
                     other_span,
                     &format!("previously bound as {:?}", other_ty),
-                )])));
+                )]),
+            ));
         }
         Ok(())
     }
@@ -85,19 +87,21 @@ struct LocalTyCtx<'tcx> {
 impl<'tcx> LocalTyCtx<'tcx> {
     fn bind(&mut self, idx: ir::LocalIdx, ty: ty::Ty) -> Result<()> {
         if let Some((other_span, other_ty)) = self.tys.insert(idx, (idx.span(), ty)) {
-            return Err(Box::from(Diagnostic::new_error(
-                "could not infer single type for value",
-                Label::new(
-                    self.file_id,
-                    idx.span(),
-                    &format!("attempted to rebind as {:?}", ty),
-                ),
-            )
+            return Err(Box::from(
+                Diagnostic::new_error(
+                    "could not infer single type for value",
+                    Label::new(
+                        self.file_id,
+                        idx.span(),
+                        &format!("attempted to rebind as {:?}", ty),
+                    ),
+                )
                 .with_secondary_labels(vec![Label::new(
                     self.file_id,
                     other_span,
                     &format!("previously bound as {:?}", other_ty),
-                )])));
+                )]),
+            ));
         }
         Ok(())
     }

@@ -178,26 +178,17 @@ impl TyKind {
 
     #[inline]
     pub fn is_u64(&self) -> bool {
-        match self {
-            TyKind::U64 => true,
-            _ => false,
-        }
+        matches!(self, TyKind::U64)
     }
 
     #[inline]
     pub fn is_enum(&self) -> bool {
-        match self {
-            TyKind::Enum(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Enum(_))
     }
 
     #[inline]
     pub fn is_struct(&self) -> bool {
-        match self {
-            TyKind::Struct(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Struct(_))
     }
 }
 
@@ -301,7 +292,7 @@ impl<'a> Deref for TyKindRef<'a> {
     type Target = TyKind;
 
     fn deref(&self) -> &Self::Target {
-        &self.guard.get(self.ty).unwrap()
+        self.guard.get(self.ty).unwrap()
     }
 }
 

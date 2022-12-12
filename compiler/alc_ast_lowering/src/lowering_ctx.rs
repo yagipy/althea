@@ -228,14 +228,15 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                         self.sess.tys.lookup_field(struct_ty, field, field.span())?,
                         lowered,
                     ) {
-                        return Err(Box::from(Diagnostic::new_error(
-                            "malformed struct initializer",
-                            Label::new(
-                                self.sess.file_id,
-                                span,
-                                "attempted to initialise the same field twice",
-                            ),
-                        )
+                        return Err(Box::from(
+                            Diagnostic::new_error(
+                                "malformed struct initializer",
+                                Label::new(
+                                    self.sess.file_id,
+                                    span,
+                                    "attempted to initialise the same field twice",
+                                ),
+                            )
                             .with_secondary_labels(vec![
                                 Label::new(
                                     self.sess.file_id,
@@ -247,7 +248,8 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                                     idx.span(),
                                     "but it was already initialised here",
                                 ),
-                            ])));
+                            ]),
+                        ));
                     }
                 }
                 if let Some(fields) = field_bindings.into_idx_vec() {
@@ -339,7 +341,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 bound,
             } => {
                 let local_idx = self.local_idxr.next().with_span(bound.span());
-                ctx.bind(&bound, local_idx, None);
+                ctx.bind(bound, local_idx, None);
                 let ty = self.sess.tys.lookup(enum_name, enum_name.span())?;
                 let discriminant = self
                     .sess

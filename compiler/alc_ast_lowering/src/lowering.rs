@@ -72,19 +72,21 @@ impl<'ast> Lowering<'ast> {
 
     fn bind(&mut self, ident: &'ast ast::Ident, span: Span) -> Result<ir::DefIdx> {
         if let Some(def_idx) = self.global_map.get(ident) {
-            Err(Box::from(Diagnostic::new_error(
-                "attempt to rebind function name",
-                Label::new(
-                    self.file_id,
-                    span,
-                    &format!("'{}' is already bound to a function", ident),
-                ),
-            )
+            Err(Box::from(
+                Diagnostic::new_error(
+                    "attempt to rebind function name",
+                    Label::new(
+                        self.file_id,
+                        span,
+                        &format!("'{}' is already bound to a function", ident),
+                    ),
+                )
                 .with_secondary_labels(vec![Label::new(
                     self.file_id,
                     self.bind_points[*def_idx],
                     "previously bound here",
-                )])))
+                )]),
+            ))
         } else {
             let def_idx = self.bind_points.push(span);
             self.global_map.insert(ident, def_idx);

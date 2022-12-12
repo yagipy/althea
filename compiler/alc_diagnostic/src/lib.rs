@@ -10,6 +10,7 @@ pub struct Span(codespan::Span);
 #[derive(Debug)]
 pub struct Spanned<T>(Span, T);
 
+#[allow(clippy::from_over_into)]
 impl Into<codespan::Span> for Span {
     #[inline]
     fn into(self) -> codespan::Span {
@@ -97,5 +98,5 @@ pub fn emit(files: &Files, diagnostic: &Diagnostic) {
     let writer = term::termcolor::StandardStream::stderr(term::termcolor::ColorChoice::Always);
     let config = term::Config::default();
     debug!("trying to emit diagnostic {:?}", diagnostic);
-    term::emit(&mut writer.lock(), &config, &files, &diagnostic).unwrap();
+    term::emit(&mut writer.lock(), &config, files, diagnostic).unwrap();
 }

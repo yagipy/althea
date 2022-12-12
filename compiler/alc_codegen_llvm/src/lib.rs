@@ -139,12 +139,16 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         );
     }
 
+    #[allow(clippy::match_single_binding)]
     fn build_alloc(&self, ty: ty::Ty, name: &str, span: Span) -> Result<PointerValue<'ctx>> {
         let ty = self.compile_basic_ty_unboxed(ty);
         match self.command_options.gc {
             // TODO: GC
             _ => self.builder.build_malloc(ty, name).map_err(|err| {
-                Box::from(Diagnostic::new_bug("failed to build malloc call", Label::new(self.file_id, span, err)))
+                Box::from(Diagnostic::new_bug(
+                    "failed to build malloc call",
+                    Label::new(self.file_id, span, err),
+                ))
             }),
         }
     }
@@ -213,7 +217,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             self.mark_ptr(ptr, ty),
             self.context
                 .custom_width_int_type(1)
-                .const_int(if mark { 1 } else { 0 }, false),
+                .const_int(u64::from(mark), false),
         );
     }
 

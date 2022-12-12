@@ -325,7 +325,11 @@ impl<'a> Parser<'a> {
                 operand: operand.boxed(),
             }))
         } else {
-            Err(Box::from(self.multi_expectation_diagnostic(vec![Kind::U64Literal, Kind::Ident, Kind::LParen])))
+            Err(Box::from(self.multi_expectation_diagnostic(vec![
+                Kind::U64Literal,
+                Kind::Ident,
+                Kind::LParen,
+            ])))
         }
     }
 
@@ -404,9 +408,10 @@ impl<'a> Parser<'a> {
                 Ok(ident.span().span(ast::Pattern::Ident(ident.into_raw())))
             }
         } else {
-            Err(Box::from(self
-                .multi_expectation_diagnostic(vec![Kind::U64Literal, Kind::Ident])
-                .with_notes(vec!["this is in order to form a valid pattern".to_owned()])))
+            Err(Box::from(
+                self.multi_expectation_diagnostic(vec![Kind::U64Literal, Kind::Ident])
+                    .with_notes(vec!["this is in order to form a valid pattern".to_owned()]),
+            ))
         }
     }
 
@@ -576,7 +581,11 @@ impl<'a> Parser<'a> {
         } else if self.next_is(Kind::Enum) {
             self.next_enum_item()
         } else {
-            Err(Box::from(self.multi_expectation_diagnostic(vec![Kind::Func, Kind::Struct, Kind::Enum])))
+            Err(Box::from(self.multi_expectation_diagnostic(vec![
+                Kind::Func,
+                Kind::Struct,
+                Kind::Enum,
+            ])))
         }
     }
 }
