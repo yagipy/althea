@@ -110,14 +110,14 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     fn lookup_def(&self, def: ir::DefIdx, span: Span) -> Result<FunctionValue<'ctx>> {
         let name = &self.ir.defs.get(def).unwrap().name;
         self.module.get_function(name).ok_or_else(|| {
-            Diagnostic::new_bug(
+            Box::from(Diagnostic::new_bug(
                 "attempt to reference unregistered def",
                 Label::new(
                     self.file_id,
                     span,
                     &format!("{} is not listed in the LLVM module", name),
                 ),
-            )
+            ))
         })
     }
 
@@ -144,7 +144,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         match self.command_options.gc {
             // TODO: GC
             _ => self.builder.build_malloc(ty, name).map_err(|err| {
-                Diagnostic::new_bug("failed to build malloc call", Label::new(self.file_id, span, err))
+                Box::from(Diagnostic::new_bug("failed to build malloc call", Label::new(self.file_id, span, err)))
             }),
         }
     }
@@ -379,10 +379,10 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         output_path.set_extension("ll");
 
         self.module.print_to_file(path).map_err(|e| {
-            Diagnostic::new_error(
+            Box::from(Diagnostic::new_error(
                 "failed to write LLVM IR to file",
                 Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
-            )
+            ))
         })
     }
 
@@ -404,7 +404,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
         match compile_result {
             Ok(_) => Ok(output_path),
-            Err(diagnostic) => Err(diagnostic),
+            Err(diagnostic) => Err(Box::from(diagnostic)),
         }
     }
 
@@ -429,10 +429,10 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 code_model,
             )
             .ok_or_else(|| {
-                Diagnostic::new_error(
+                Box::from(Diagnostic::new_error(
                     "failed to get target machine",
                     Label::new(self.file_id, Span::dummy(), ""),
-                )
+                ))
             })
     }
 
@@ -456,10 +456,10 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         let stderr = String::from_utf8(command_output.stderr).unwrap();
 
         if status != 0 {
-            return Err(Diagnostic::new_error(
+            return Err(Box::from(Diagnostic::new_error(
                 "failed to execute linker",
                 Label::new(self.file_id, Span::dummy(), stderr),
-            ));
+            )));
         }
 
         Ok(())

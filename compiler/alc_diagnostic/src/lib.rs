@@ -91,7 +91,7 @@ impl<T> Deref for Spanned<T> {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Diagnostic>;
+pub type Result<T> = std::result::Result<T, Box<Diagnostic>>;
 
 pub fn emit(files: &Files, diagnostic: &Diagnostic) {
     let writer = term::termcolor::StandardStream::stderr(term::termcolor::ColorChoice::Always);

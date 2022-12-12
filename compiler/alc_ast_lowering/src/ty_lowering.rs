@@ -65,14 +65,14 @@ impl<'ast> TyLowering<'ast> {
                             .insert(&*binding.binder, self.lookup_binding(binding)?)
                             .is_some()
                         {
-                            return Err(Diagnostic::new_error(
+                            return Err(Box::from(Diagnostic::new_error(
                                 "attempted to rebind enum variant",
                                 Label::new(
                                     file_id,
                                     binding.span(),
                                     "a variant with this name already exists",
                                 ),
-                            ));
+                            )));
                         }
                     }
                     let (variants, index) = variant_tys.reindex::<ty::VariantIdx>();
@@ -102,10 +102,10 @@ impl<'ast> TyLowering<'ast> {
                             .insert(&*binding.binder, self.lookup_binding(binding)?)
                             .is_some()
                         {
-                            return Err(Diagnostic::new_error(
+                            return Err(Box::from(Diagnostic::new_error(
                                 "attempted to rebind field type",
                                 Label::new(file_id, binding.span(), "a field with this name already exists"),
-                            ));
+                            )));
                         }
                     }
                     let (fields, index) = field_tys.reindex::<ty::FieldIdx>();
@@ -136,10 +136,10 @@ impl<'ast> TyLowering<'ast> {
 
     pub(super) fn bind(&mut self, ident: &'ast ast::Ident, span: Span, ty: ty::Ty) -> Result<()> {
         if self.tys.get(ident).is_some() {
-            return Err(Diagnostic::new_error(
+            return Err(Box::from(Diagnostic::new_error(
                 "previously bound type name",
                 Label::new(self.file_id, span, &format!("attempt to rebind '{}' here", ident)),
-            ));
+            )));
         }
         debug!("bind '{}' as {:?}", ident, ty);
         self.tys.insert(ident, ty);
@@ -150,10 +150,10 @@ impl<'ast> TyLowering<'ast> {
         if let Some(ty) = self.tys.get(ident) {
             return Ok(*ty);
         }
-        Err(Diagnostic::new_error(
+        Err(Box::from(Diagnostic::new_error(
             "reference to unbound type name",
             Label::new(self.file_id, span, &format!("'{}' is not bound as a type", ident)),
-        ))
+        )))
     }
 
     #[inline]
@@ -180,24 +180,24 @@ impl<'ast> TyLowering<'ast> {
             if let Some(variant) = variants.get(variant_name) {
                 Ok(*variant)
             } else {
-                Err(Diagnostic::new_error(
+                Err(Box::from(Diagnostic::new_error(
                     "type usage error",
                     Label::new(
                         self.file_id,
                         span,
                         &format!("'{}' is not a variant of the type given", variant_name),
                     ),
-                ))
+                )))
             }
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "type usage error",
                 Label::new(
                     self.file_id,
                     span,
                     "can't reference variants of a type that is not an enum",
                 ),
-            ))
+            )))
         }
     }
 
@@ -206,24 +206,24 @@ impl<'ast> TyLowering<'ast> {
             if let Some(field) = fields.get(field_name) {
                 Ok(*field)
             } else {
-                Err(Diagnostic::new_error(
+                Err(Box::from(Diagnostic::new_error(
                     "type usage error",
                     Label::new(
                         self.file_id,
                         span,
                         &format!("'{}' is not a field of the type given", field_name),
                     ),
-                ))
+                )))
             }
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "type usage error",
                 Label::new(
                     self.file_id,
                     span,
                     "can't reference fields of a type that is not a struct",
                 ),
-            ))
+            )))
         }
     }
 

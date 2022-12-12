@@ -72,14 +72,14 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
         } else if let Some(parent) = self.parent {
             parent.lookup(ident, span)
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "reference to unbound variable",
                 Label::new(
                     self.sess.file_id,
                     span,
                     &format!("'{}' is not bound here (while lowering)", ident),
                 ),
-            ))
+            )))
         }
     }
 
@@ -93,26 +93,26 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
             if let Some(field_local_idx) = field_map.get(field_idx) {
                 Ok(field_local_idx.with_span(span))
             } else {
-                Err(Diagnostic::new_error(
+                Err(Box::from(Diagnostic::new_error(
                     "reference to unbound field",
                     Label::new(
                         self.sess.file_id,
                         span,
                         &format!("'{:?}' is not bound here (while lowering)", field_idx),
                     ),
-                ))
+                )))
             }
         } else if let Some(parent) = self.parent {
             parent.lookup_field(local_idx, field_idx, span)
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "reference to unbound field",
                 Label::new(
                     self.sess.file_id,
                     span,
                     &format!("'{:?}' is not bound here (while lowering)", field_idx),
                 ),
-            ))
+            )))
         }
     }
 
@@ -228,7 +228,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                         self.sess.tys.lookup_field(struct_ty, field, field.span())?,
                         lowered,
                     ) {
-                        return Err(Diagnostic::new_error(
+                        return Err(Box::from(Diagnostic::new_error(
                             "malformed struct initializer",
                             Label::new(
                                 self.sess.file_id,
@@ -236,18 +236,18 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                                 "attempted to initialise the same field twice",
                             ),
                         )
-                        .with_secondary_labels(vec![
-                            Label::new(
-                                self.sess.file_id,
-                                lowered.span(),
-                                &format!("attempted to initialise '{}' here", &**field),
-                            ),
-                            Label::new(
-                                self.sess.file_id,
-                                idx.span(),
-                                "but it was already initialised here",
-                            ),
-                        ]));
+                            .with_secondary_labels(vec![
+                                Label::new(
+                                    self.sess.file_id,
+                                    lowered.span(),
+                                    &format!("attempted to initialise '{}' here", &**field),
+                                ),
+                                Label::new(
+                                    self.sess.file_id,
+                                    idx.span(),
+                                    "but it was already initialised here",
+                                ),
+                            ])));
                     }
                 }
                 if let Some(fields) = field_bindings.into_idx_vec() {
@@ -256,10 +256,10 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                         fields,
                     }
                 } else {
-                    return Err(Diagnostic::new_error(
+                    return Err(Box::from(Diagnostic::new_error(
                         "malformed struct initializer",
                         Label::new(self.sess.file_id, span, "not all fields initialised"),
-                    ));
+                    )));
                 }
             }
         })
@@ -363,10 +363,10 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 if let Some(fields) = field_bindings.into_idx_vec() {
                     ir::PatternKind::Record { ty, fields }
                 } else {
-                    return Err(Diagnostic::new_error(
+                    return Err(Box::from(Diagnostic::new_error(
                         "malformed match arm",
                         Label::new(self.sess.file_id, pattern_span, "not all fields are matched"),
-                    ));
+                    )));
                 }
             }
         };

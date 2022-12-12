@@ -95,14 +95,14 @@ impl<'a> Iterator for Lexer<'a> {
             },
             '.' => Kind::Dot.into(),
             c => {
-                return Some(Err(Diagnostic::new_error(
+                return Some(Err(Box::from(Diagnostic::new_error(
                     "found invalid token",
                     Label::new(
                         self.file_id,
                         lo..self.index(),
                         &format!("'{}' is not valid here", c),
                     ),
-                )))
+                ))))
             }
         };
         let hi = self.index();

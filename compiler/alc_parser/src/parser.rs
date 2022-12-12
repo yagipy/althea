@@ -54,9 +54,9 @@ macro_rules! register_unops {
                     return Ok(span.span(ast::UnopKind::$op))
                 }
             )*
-            Err(self.multi_expectation_diagnostic(vec![
+            Err(Box::from(self.multi_expectation_diagnostic(vec![
                 $( Kind::$kind, )*
-            ]))
+            ])))
         }
     }
 }
@@ -70,9 +70,9 @@ macro_rules! register_binops {
                     return Ok(span.span(ast::BinopKind::$op))
                 }
             )*
-            Err(self.multi_expectation_diagnostic(vec![
+            Err(Box::from(self.multi_expectation_diagnostic(vec![
                 $( Kind::$kind, )*
-            ]))
+            ])))
         }
 
         pub fn _precedence_of(kind: ast::BinopKind) -> u32 {
@@ -125,10 +125,10 @@ impl<'a> Parser<'a> {
                 command_options,
             })
         } else {
-            Err(Diagnostic::new_bug(
+            Err(Box::from(Diagnostic::new_bug(
                 "cannot construct parser from empty token stream",
                 Label::new(file_id, Span::dummy(), "this file appears to be empty"),
-            ))
+            )))
         }
     }
 
@@ -158,22 +158,22 @@ impl<'a> Parser<'a> {
                 mem::swap(&mut self.current, &mut token);
                 Ok(token.unwrap())
             }
-            Some(ref current) => Err(Diagnostic::new_error(
+            Some(ref current) => Err(Box::from(Diagnostic::new_error(
                 "token type mismatch",
                 Label::new(
                     self.file_id,
                     current.span(),
                     &format!("expected '{:?}', but got '{:?}'", kind, current.kind()),
                 ),
-            )),
-            _ => Err(Diagnostic::new_error(
+            ))),
+            _ => Err(Box::from(Diagnostic::new_error(
                 "unexpected end of input",
                 Label::new(
                     self.file_id,
                     self.last_span.clip(),
                     &format!("expected '{:?}', but reached end of input", kind),
                 ),
-            )),
+            ))),
         }
     }
 
@@ -209,10 +209,10 @@ impl<'a> Parser<'a> {
 
     fn unpack_literal(&self, data: &str, span: Span) -> Result<u64> {
         data.parse::<u64>().map_err(|err| {
-            Diagnostic::new_bug(
+            Box::from(Diagnostic::new_bug(
                 "failed to parse u64 literal",
                 Label::new(self.file_id, span, err.to_string()),
-            )
+            ))
         })
     }
 
@@ -325,7 +325,7 @@ impl<'a> Parser<'a> {
                 operand: operand.boxed(),
             }))
         } else {
-            Err(self.multi_expectation_diagnostic(vec![Kind::U64Literal, Kind::Ident, Kind::LParen]))
+            Err(Box::from(self.multi_expectation_diagnostic(vec![Kind::U64Literal, Kind::Ident, Kind::LParen])))
         }
     }
 
@@ -404,9 +404,9 @@ impl<'a> Parser<'a> {
                 Ok(ident.span().span(ast::Pattern::Ident(ident.into_raw())))
             }
         } else {
-            Err(self
+            Err(Box::from(self
                 .multi_expectation_diagnostic(vec![Kind::U64Literal, Kind::Ident])
-                .with_notes(vec!["this is in order to form a valid pattern".to_owned()]))
+                .with_notes(vec!["this is in order to form a valid pattern".to_owned()])))
         }
     }
 
@@ -576,7 +576,7 @@ impl<'a> Parser<'a> {
         } else if self.next_is(Kind::Enum) {
             self.next_enum_item()
         } else {
-            Err(self.multi_expectation_diagnostic(vec![Kind::Func, Kind::Struct, Kind::Enum]))
+            Err(Box::from(self.multi_expectation_diagnostic(vec![Kind::Func, Kind::Struct, Kind::Enum])))
         }
     }
 }

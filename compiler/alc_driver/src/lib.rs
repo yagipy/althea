@@ -53,19 +53,19 @@ fn open_file(command_options: &CommandOptions, files: &mut Files) -> Result<File
                 }
                 Err(err) => {
                     let file_id = files.add(command_options.src_file_name().to_owned(), "");
-                    Err(Diagnostic::new_error(
+                    Err(Box::from(Diagnostic::new_error(
                         "failed to read source file",
                         Label::new(file_id, Span::dummy(), err.to_string()),
-                    ))
+                    )))
                 }
             }
         }
         Err(err) => {
             let file_id = files.add(command_options.src_file_name().to_owned(), "");
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "failed to open source file",
                 Label::new(file_id, Span::dummy(), err.to_string()),
-            ))
+            )))
         }
     }
 }
