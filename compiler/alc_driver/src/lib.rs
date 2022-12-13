@@ -38,7 +38,7 @@ fn run_compiler(command_options: &CommandOptions, files: &mut Files) -> Result<(
     let file_id = open_file(command_options, files)?;
     let ast = alc_parser::parse(command_options, files, file_id)?;
     let (ir, ty_sess) = alc_ast_lowering::lower(command_options, file_id, &ast)?;
-    // let _ty_env = alc_type_checker::check(command_options, file_id, &ty_sess, &ir)?;
+    let _ty_env = alc_type_checker::check(command_options, file_id, &ty_sess, &ir)?;
     alc_codegen_llvm::generate(command_options, file_id, &ty_sess, &ir)
 }
 
@@ -53,19 +53,19 @@ fn open_file(command_options: &CommandOptions, files: &mut Files) -> Result<File
                 }
                 Err(err) => {
                     let file_id = files.add(command_options.src_file_name().to_owned(), "");
-                    Err(Diagnostic::new_error(
+                    Err(Box::from(Diagnostic::new_error(
                         "failed to read source file",
                         Label::new(file_id, Span::dummy(), err.to_string()),
-                    ))
+                    )))
                 }
             }
         }
         Err(err) => {
             let file_id = files.add(command_options.src_file_name().to_owned(), "");
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "failed to open source file",
                 Label::new(file_id, Span::dummy(), err.to_string()),
-            ))
+            )))
         }
     }
 }

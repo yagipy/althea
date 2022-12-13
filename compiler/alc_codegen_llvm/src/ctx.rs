@@ -39,14 +39,14 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
         if let Some(value) = self.bindings.get(&idx) {
             Ok(*value)
         } else {
-            Err(Diagnostic::new_bug(
+            Err(Box::from(Diagnostic::new_bug(
                 "reference to unbound local index",
                 Label::new(
                     self.file_id,
                     idx.span(),
                     &format!("'{:?}' not bound in this scope", idx),
                 ),
-            ))
+            )))
         }
     }
 
@@ -138,10 +138,10 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                     .try_as_basic_value()
                     .left()
                     .ok_or_else(|| {
-                        Diagnostic::new_bug(
+                        Box::from(Diagnostic::new_bug(
                             "attempted to return non-basic value from function call",
                             Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
-                        )
+                        ))
                     })
             }
             ir::ExprKind::Variant {

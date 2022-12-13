@@ -8,11 +8,5 @@ func main() u64 {
         bar: 42,
         test: 32,
     }
-    //match foo {
-    //    Foo {
-    //        bar: bar,
-    //        test: test,
-    //    } => bar + test,
-    //}
     foo.bar + foo.test
 }

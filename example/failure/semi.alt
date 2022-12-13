@@ -1,0 +1,4 @@
+func main() u64 {
+    let result: u64 = 1;
+    0
+}

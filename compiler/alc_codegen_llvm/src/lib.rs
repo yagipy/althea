@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 const ALC_FREE: &str = "alc_free";
 const ALC_RESET: &str = "alc_reset";
-const PRINTF: &str = "printf";
+const PRINTF: &str = "puts";
 
 pub fn generate<'a>(
     command_options: &'a CommandOptions,
@@ -110,14 +110,14 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     fn lookup_def(&self, def: ir::DefIdx, span: Span) -> Result<FunctionValue<'ctx>> {
         let name = &self.ir.defs.get(def).unwrap().name;
         self.module.get_function(name).ok_or_else(|| {
-            Diagnostic::new_bug(
+            Box::from(Diagnostic::new_bug(
                 "attempt to reference unregistered def",
                 Label::new(
                     self.file_id,
                     span,
                     &format!("{} is not listed in the LLVM module", name),
                 ),
-            )
+            ))
         })
     }
 
@@ -139,12 +139,16 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         );
     }
 
+    #[allow(clippy::match_single_binding)]
     fn build_alloc(&self, ty: ty::Ty, name: &str, span: Span) -> Result<PointerValue<'ctx>> {
         let ty = self.compile_basic_ty_unboxed(ty);
         match self.command_options.gc {
             // TODO: GC
             _ => self.builder.build_malloc(ty, name).map_err(|err| {
-                Diagnostic::new_bug("failed to build malloc call", Label::new(self.file_id, span, err))
+                Box::from(Diagnostic::new_bug(
+                    "failed to build malloc call",
+                    Label::new(self.file_id, span, err),
+                ))
             }),
         }
     }
@@ -178,7 +182,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     #[inline]
     unsafe fn gep(&self, ptr: PointerValue<'ctx>, idx: u64, name: &str) -> PointerValue<'ctx> {
-        self.builder.build_gep(
+        self.builder.build_in_bounds_gep(
             ptr,
             &[
                 self.context.i32_type().const_int(0, false),
@@ -213,7 +217,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             self.mark_ptr(ptr, ty),
             self.context
                 .custom_width_int_type(1)
-                .const_int(if mark { 1 } else { 0 }, false),
+                .const_int(u64::from(mark), false),
         );
     }
 
@@ -379,10 +383,10 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         output_path.set_extension("ll");
 
         self.module.print_to_file(path).map_err(|e| {
-            Diagnostic::new_error(
+            Box::from(Diagnostic::new_error(
                 "failed to write LLVM IR to file",
                 Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
-            )
+            ))
         })
     }
 
@@ -404,7 +408,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
         match compile_result {
             Ok(_) => Ok(output_path),
-            Err(diagnostic) => Err(diagnostic),
+            Err(diagnostic) => Err(Box::from(diagnostic)),
         }
     }
 
@@ -429,10 +433,10 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 code_model,
             )
             .ok_or_else(|| {
-                Diagnostic::new_error(
+                Box::from(Diagnostic::new_error(
                     "failed to get target machine",
                     Label::new(self.file_id, Span::dummy(), ""),
-                )
+                ))
             })
     }
 
@@ -456,10 +460,10 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         let stderr = String::from_utf8(command_output.stderr).unwrap();
 
         if status != 0 {
-            return Err(Diagnostic::new_error(
+            return Err(Box::from(Diagnostic::new_error(
                 "failed to execute linker",
                 Label::new(self.file_id, Span::dummy(), stderr),
-            ));
+            )));
         }
 
         Ok(())

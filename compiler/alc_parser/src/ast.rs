@@ -72,7 +72,6 @@ pub enum Expr {
 pub enum Pattern {
     U64Literal(u64),
     StringLiteral(String),
-    // Literal(u64),
     Ident(Ident),
     Variant {
         enum_name: Spanned<Ident>,

@@ -59,32 +59,34 @@ impl<'ast> Lowering<'ast> {
         if let Some(def_idx) = self.global_map.get(ident) {
             Ok(*def_idx)
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "reference to unbound function symbol",
                 Label::new(
                     self.file_id,
                     span,
                     &format!("'{}' is not bound as a function symbol", ident),
                 ),
-            ))
+            )))
         }
     }
 
     fn bind(&mut self, ident: &'ast ast::Ident, span: Span) -> Result<ir::DefIdx> {
         if let Some(def_idx) = self.global_map.get(ident) {
-            Err(Diagnostic::new_error(
-                "attempt to rebind function name",
-                Label::new(
+            Err(Box::from(
+                Diagnostic::new_error(
+                    "attempt to rebind function name",
+                    Label::new(
+                        self.file_id,
+                        span,
+                        &format!("'{}' is already bound to a function", ident),
+                    ),
+                )
+                .with_secondary_labels(vec![Label::new(
                     self.file_id,
-                    span,
-                    &format!("'{}' is already bound to a function", ident),
-                ),
-            )
-            .with_secondary_labels(vec![Label::new(
-                self.file_id,
-                self.bind_points[*def_idx],
-                "previously bound here",
-            )]))
+                    self.bind_points[*def_idx],
+                    "previously bound here",
+                )]),
+            ))
         } else {
             let def_idx = self.bind_points.push(span);
             self.global_map.insert(ident, def_idx);
@@ -94,14 +96,14 @@ impl<'ast> Lowering<'ast> {
 
     fn lower_decl(&mut self, decl: &'ast ast::FnDecl) -> Result<ir::Def> {
         if RESERVED_NAMES.contains(&&**decl.name) {
-            return Err(Diagnostic::new_error(
+            return Err(Box::from(Diagnostic::new_error(
                 "use of reserved name",
                 Label::new(
                     self.file_id,
                     decl.name.span(),
                     &format!("'{}' is reserved for use by the compiler", &**decl.name),
                 ),
-            ));
+            )));
         }
         let def_idx = self.lookup(&decl.name, decl.name.span())?;
         let local_idxr = Idxr::new();
@@ -112,14 +114,14 @@ impl<'ast> Lowering<'ast> {
         for binding in decl.params.iter() {
             let local_idx = local_idxr.next().with_span(binding.span());
             if lcx.bind(&binding.binder, local_idx, None).is_some() {
-                return Err(Diagnostic::new_error(
+                return Err(Box::from(Diagnostic::new_error(
                     "attempted to rebind formal parameter",
                     Label::new(
                         self.file_id,
                         binding.span(),
                         "a formal parameter with this name already exists",
                     ),
-                ));
+                )));
             }
             param_bindings.push(local_idx.with_span(binding.span()));
             param_tys.push(self.tys.lookup_ty(&binding.ty, binding.ty.span())?);

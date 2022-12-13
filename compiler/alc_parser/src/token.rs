@@ -66,6 +66,6 @@ impl Token {
     }
 
     pub fn value(&self) -> Option<&str> {
-        self.1.as_ref().map(|x| &**x)
+        self.1.as_deref()
     }
 }

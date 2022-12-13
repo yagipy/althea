@@ -72,14 +72,14 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
         } else if let Some(parent) = self.parent {
             parent.lookup(ident, span)
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "reference to unbound variable",
                 Label::new(
                     self.sess.file_id,
                     span,
                     &format!("'{}' is not bound here (while lowering)", ident),
                 ),
-            ))
+            )))
         }
     }
 
@@ -93,26 +93,26 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
             if let Some(field_local_idx) = field_map.get(field_idx) {
                 Ok(field_local_idx.with_span(span))
             } else {
-                Err(Diagnostic::new_error(
+                Err(Box::from(Diagnostic::new_error(
                     "reference to unbound field",
                     Label::new(
                         self.sess.file_id,
                         span,
                         &format!("'{:?}' is not bound here (while lowering)", field_idx),
                     ),
-                ))
+                )))
             }
         } else if let Some(parent) = self.parent {
             parent.lookup_field(local_idx, field_idx, span)
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "reference to unbound field",
                 Label::new(
                     self.sess.file_id,
                     span,
                     &format!("'{:?}' is not bound here (while lowering)", field_idx),
                 ),
-            ))
+            )))
         }
     }
 
@@ -209,19 +209,18 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 discriminant,
                 body,
             } => {
-                let enum_ty = self.sess.tys.lookup(&enum_name, enum_name.span())?;
+                let enum_ty = self.sess.tys.lookup(enum_name, enum_name.span())?;
                 ir::ExprKind::Variant {
                     ty: enum_ty,
-                    discriminant: self.sess.tys.lookup_variant(
-                        enum_ty,
-                        &discriminant,
-                        discriminant.span(),
-                    )?,
+                    discriminant: self
+                        .sess
+                        .tys
+                        .lookup_variant(enum_ty, discriminant, discriminant.span())?,
                     body: self.lower_expr(None, body, body.span())?,
                 }
             }
             ast::Expr::Record { struct_name, fields } => {
-                let struct_ty = self.sess.tys.lookup(&struct_name, struct_name.span())?;
+                let struct_ty = self.sess.tys.lookup(struct_name, struct_name.span())?;
                 let mut field_bindings = HashMap::new();
                 for (field, body) in fields.iter() {
                     let lowered = self.lower_expr(None, body, body.span())?;
@@ -229,26 +228,28 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                         self.sess.tys.lookup_field(struct_ty, field, field.span())?,
                         lowered,
                     ) {
-                        return Err(Diagnostic::new_error(
-                            "malformed struct initializer",
-                            Label::new(
-                                self.sess.file_id,
-                                span,
-                                "attempted to initialise the same field twice",
-                            ),
-                        )
-                        .with_secondary_labels(vec![
-                            Label::new(
-                                self.sess.file_id,
-                                lowered.span(),
-                                &format!("attempted to initialise '{}' here", &**field),
-                            ),
-                            Label::new(
-                                self.sess.file_id,
-                                idx.span(),
-                                "but it was already initialised here",
-                            ),
-                        ]));
+                        return Err(Box::from(
+                            Diagnostic::new_error(
+                                "malformed struct initializer",
+                                Label::new(
+                                    self.sess.file_id,
+                                    span,
+                                    "attempted to initialise the same field twice",
+                                ),
+                            )
+                            .with_secondary_labels(vec![
+                                Label::new(
+                                    self.sess.file_id,
+                                    lowered.span(),
+                                    &format!("attempted to initialise '{}' here", &**field),
+                                ),
+                                Label::new(
+                                    self.sess.file_id,
+                                    idx.span(),
+                                    "but it was already initialised here",
+                                ),
+                            ]),
+                        ));
                     }
                 }
                 if let Some(fields) = field_bindings.into_idx_vec() {
@@ -257,10 +258,10 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                         fields,
                     }
                 } else {
-                    return Err(Diagnostic::new_error(
+                    return Err(Box::from(Diagnostic::new_error(
                         "malformed struct initializer",
                         Label::new(self.sess.file_id, span, "not all fields initialised"),
-                    ));
+                    )));
                 }
             }
         })
@@ -270,7 +271,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
         let kind = self.lower_expr_kind(expr, span)?;
         Ok(match kind {
             ir::ExprKind::Var(local_idx, field_idxes) => {
-                if field_idxes.len() == 0 {
+                if field_idxes.is_empty() {
                     return Ok(local_idx);
                 }
                 self.lookup_fields(local_idx, field_idxes, span)?
@@ -340,12 +341,12 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 bound,
             } => {
                 let local_idx = self.local_idxr.next().with_span(bound.span());
-                ctx.bind(&bound, local_idx, None);
-                let ty = self.sess.tys.lookup(&enum_name, enum_name.span())?;
+                ctx.bind(bound, local_idx, None);
+                let ty = self.sess.tys.lookup(enum_name, enum_name.span())?;
                 let discriminant = self
                     .sess
                     .tys
-                    .lookup_variant(ty, &discriminant, discriminant.span())?;
+                    .lookup_variant(ty, discriminant, discriminant.span())?;
                 ir::PatternKind::Variant {
                     ty,
                     discriminant,
@@ -353,21 +354,21 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 }
             }
             ast::Pattern::Record { struct_name, fields } => {
-                let ty = self.sess.tys.lookup(&struct_name, struct_name.span())?;
+                let ty = self.sess.tys.lookup(struct_name, struct_name.span())?;
                 let mut field_bindings = HashMap::new();
                 for (field, bound) in fields {
                     let local_idx = self.local_idxr.next().with_span(bound.span());
-                    ctx.bind(&bound, local_idx, Some(ty));
-                    let field = self.sess.tys.lookup_field(ty, &field, field.span())?;
+                    ctx.bind(bound, local_idx, Some(ty));
+                    let field = self.sess.tys.lookup_field(ty, field, field.span())?;
                     field_bindings.insert(field, local_idx);
                 }
                 if let Some(fields) = field_bindings.into_idx_vec() {
                     ir::PatternKind::Record { ty, fields }
                 } else {
-                    return Err(Diagnostic::new_error(
+                    return Err(Box::from(Diagnostic::new_error(
                         "malformed match arm",
                         Label::new(self.sess.file_id, pattern_span, "not all fields are matched"),
-                    ));
+                    )));
                 }
             }
         };
@@ -391,8 +392,8 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     _ => None,
                 };
                 let idx = self.lower_expr(ty, expr, expr.span())?;
-                self.bind(&binder, idx, ty);
-                self.lower_term(&body, body.span())
+                self.bind(binder, idx, ty);
+                self.lower_term(body, body.span())
             }
             ast::Term::Println { expr, body } => {
                 let idx = self.lower_expr(None, expr, expr.span())?;
@@ -400,13 +401,13 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     span,
                     kind: ir::InstructionKind::Println { idx },
                 });
-                self.lower_term(&body, body.span())
+                self.lower_term(body, body.span())
             }
             ast::Term::Match { source, arms } => {
                 let source = self.lower_expr(None, source, source.span())?;
                 let mut lowered_arms = vec![];
                 for (pattern, body) in arms.iter() {
-                    lowered_arms.push(self.lower_arm(&pattern, &body, pattern.span(), body.span())?);
+                    lowered_arms.push(self.lower_arm(pattern, body, pattern.span(), body.span())?);
                 }
                 Ok(ir::Terminator::Match {
                     source,
@@ -426,14 +427,13 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                             span: otherwise.span(),
                             pattern: ir::PatternKind::U64Literal(0),
                             target: Box::new(
-                                self.mk_child()
-                                    .lower_term_to_block(&otherwise, otherwise.span())?,
+                                self.mk_child().lower_term_to_block(otherwise, otherwise.span())?,
                             ),
                         },
                         ir::Arm {
                             span: then.span(),
                             pattern: ir::PatternKind::Ident(self.local_idxr.next().with_span(source.span())),
-                            target: Box::new(self.mk_child().lower_term_to_block(&then, then.span())?),
+                            target: Box::new(self.mk_child().lower_term_to_block(then, then.span())?),
                         },
                     ],
                 })

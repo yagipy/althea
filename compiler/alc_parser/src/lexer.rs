@@ -19,7 +19,7 @@ impl<'a> Iterator for Lexer<'a> {
                 self.skip_whitespace();
                 return self.next();
             }
-            c if c.is_digit(10) => Token::new(Kind::U64Literal, &self.next_literal(c)),
+            c if c.is_ascii_digit() => Token::new(Kind::U64Literal, &self.next_literal(c)),
             c if c.is_alphabetic() || c == '_' => self.next_ident_or_keyword(c),
             '"' => self.next_string_literal()?,
             '!' => match self.nth_char(0) {
@@ -95,14 +95,14 @@ impl<'a> Iterator for Lexer<'a> {
             },
             '.' => Kind::Dot.into(),
             c => {
-                return Some(Err(Diagnostic::new_error(
+                return Some(Err(Box::from(Diagnostic::new_error(
                     "found invalid token",
                     Label::new(
                         self.file_id,
                         lo..self.index(),
                         &format!("'{}' is not valid here", c),
                     ),
-                )))
+                ))))
             }
         };
         let hi = self.index();
@@ -147,7 +147,7 @@ impl<'a> Lexer<'a> {
         data.push(first);
         loop {
             match self.nth_char(0) {
-                c if c.is_digit(10) => {
+                c if c.is_ascii_digit() => {
                     data.push(c);
                     self.chars.next();
                 }

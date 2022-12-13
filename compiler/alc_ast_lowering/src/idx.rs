@@ -34,3 +34,10 @@ impl<T: Idx> Idxr<T> {
         local_idx
     }
 }
+
+impl<T: Idx> Default for Idxr<T> {
+    #[inline]
+    fn default() -> Idxr<T> {
+        Idxr::new()
+    }
+}

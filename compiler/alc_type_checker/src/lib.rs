@@ -29,15 +29,17 @@ struct TyCtx<'tcx> {
 impl<'tcx> TyCtx<'tcx> {
     fn bind(&mut self, idx: ir::DefIdx, ty: ty::Ty, span: Span) -> Result<()> {
         if let Some((other_span, other_ty)) = self.tys.insert(idx, (span, ty)) {
-            return Err(Diagnostic::new_error(
-                "could not infer single type for value",
-                Label::new(self.file_id, span, &format!("attempted to rebind as {:?}", ty)),
-            )
-            .with_secondary_labels(vec![Label::new(
-                self.file_id,
-                other_span,
-                &format!("previously bound as {:?}", other_ty),
-            )]));
+            return Err(Box::from(
+                Diagnostic::new_error(
+                    "could not infer single type for value",
+                    Label::new(self.file_id, span, &format!("attempted to rebind as {:?}", ty)),
+                )
+                .with_secondary_labels(vec![Label::new(
+                    self.file_id,
+                    other_span,
+                    &format!("previously bound as {:?}", other_ty),
+                )]),
+            ));
         }
         Ok(())
     }
@@ -46,10 +48,10 @@ impl<'tcx> TyCtx<'tcx> {
         if let Some((_, ty)) = self.tys.get(&idx) {
             Ok(*ty)
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "reference to unbound definition",
                 Label::new(self.file_id, span, "not bound in this scope"),
-            ))
+            )))
         }
     }
 
@@ -85,19 +87,21 @@ struct LocalTyCtx<'tcx> {
 impl<'tcx> LocalTyCtx<'tcx> {
     fn bind(&mut self, idx: ir::LocalIdx, ty: ty::Ty) -> Result<()> {
         if let Some((other_span, other_ty)) = self.tys.insert(idx, (idx.span(), ty)) {
-            return Err(Diagnostic::new_error(
-                "could not infer single type for value",
-                Label::new(
+            return Err(Box::from(
+                Diagnostic::new_error(
+                    "could not infer single type for value",
+                    Label::new(
+                        self.file_id,
+                        idx.span(),
+                        &format!("attempted to rebind as {:?}", ty),
+                    ),
+                )
+                .with_secondary_labels(vec![Label::new(
                     self.file_id,
-                    idx.span(),
-                    &format!("attempted to rebind as {:?}", ty),
-                ),
-            )
-            .with_secondary_labels(vec![Label::new(
-                self.file_id,
-                other_span,
-                &format!("previously bound as {:?}", other_ty),
-            )]));
+                    other_span,
+                    &format!("previously bound as {:?}", other_ty),
+                )]),
+            ));
         }
         Ok(())
     }
@@ -106,14 +110,14 @@ impl<'tcx> LocalTyCtx<'tcx> {
         if let Some((_, ty)) = self.tys.get(&idx) {
             Ok(*ty)
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "reference to unbound variable",
                 Label::new(
                     self.file_id,
                     idx.span(),
                     "not bound in this scope (while type checking)",
                 ),
-            ))
+            )))
         }
     }
 
@@ -125,14 +129,14 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::ExprKind::Unop { operand, .. } => {
                 // NOTE this is a bit of a hack, but at present the only unary operator only takes u64 types
                 if self.lookup(*operand)? != self.ty_sess.make_u64() {
-                    Err(Diagnostic::new_error(
+                    Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             span,
                             "argument to unary operator must have type u64",
                         ),
-                    ))
+                    )))
                 } else {
                     Ok(self.ty_sess.make_u64())
                 }
@@ -140,23 +144,23 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::ExprKind::Binop { left, right, .. } => {
                 // NOTE same hack works here because at present all binary operators only take u64 types
                 if self.lookup(*left)? != self.ty_sess.make_u64() {
-                    Err(Diagnostic::new_error(
+                    Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             left.span(),
                             "arguments to binary operator must have type u64",
                         ),
-                    ))
+                    )))
                 } else if self.lookup(*right)? != self.ty_sess.make_u64() {
-                    Err(Diagnostic::new_error(
+                    Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             right.span(),
                             "arguments to binary operator must have type u64",
                         ),
-                    ))
+                    )))
                 } else {
                     Ok(self.ty_sess.make_u64())
                 }
@@ -170,7 +174,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                     )
                 })?;
                 if args.len() != param_count {
-                    return Err(Diagnostic::new_error(
+                    return Err(Box::from(Diagnostic::new_error(
                         "argument count mismatch",
                         Label::new(
                             self.file_id,
@@ -181,7 +185,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                                 args.len()
                             ),
                         ),
-                    ));
+                    )));
                 }
                 for (param_idx, local_idx) in args.iter() {
                     let arg_ty = self.lookup(*local_idx)?;
@@ -192,21 +196,21 @@ impl<'tcx> LocalTyCtx<'tcx> {
                         )
                     })?;
                     if arg_ty != param_ty {
-                        return Err(Diagnostic::new_error(
+                        return Err(Box::from(Diagnostic::new_error(
                             "type mismatch",
                             Label::new(
                                 self.file_id,
                                 local_idx.span(),
                                 "argument types and parameter types do not match",
                             ),
-                        ));
+                        )));
                     }
                 }
                 self.ty_sess.ty_kind(fn_ty).return_ty().ok_or_else(|| {
-                    Diagnostic::new_bug(
+                    Box::from(Diagnostic::new_bug(
                         "failed to read fn type",
                         Label::new(self.file_id, span, "return type could not be read"),
-                    )
+                    ))
                 })
             }
             ir::ExprKind::Variant {
@@ -230,14 +234,14 @@ impl<'tcx> LocalTyCtx<'tcx> {
                         )
                     })?;
                 if body_ty != variant_ty {
-                    Err(Diagnostic::new_error(
+                    Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             body.span(),
                             "enum variant cannot be instantiated using the given body",
                         ),
-                    ))
+                    )))
                 } else {
                     Ok(*ty)
                 }
@@ -256,14 +260,14 @@ impl<'tcx> LocalTyCtx<'tcx> {
                         )
                     })?;
                     if body_ty != field_ty {
-                        return Err(Diagnostic::new_error(
+                        return Err(Box::from(Diagnostic::new_error(
                             "type mismatch",
                             Label::new(
                                 self.file_id,
                                 local_idx.span(),
                                 "struct field cannot be instantiated using the given body",
                             ),
-                        ));
+                        )));
                     }
                 }
                 Ok(*ty)
@@ -335,14 +339,14 @@ impl<'tcx> LocalTyCtx<'tcx> {
                 let bound_ty = self.check_expr(expr)?;
                 match ty {
                     Some(ty) if *ty != bound_ty => {
-                        return Err(Diagnostic::new_error(
+                        return Err(Box::from(Diagnostic::new_error(
                             "type mismatch",
                             Label::new(
                                 self.file_id,
                                 span,
                                 "declared type for let binding does not match type of bound expression",
                             ),
-                        ))
+                        )))
                     }
                     _ => {
                         self.bind(*binding, bound_ty)?;
@@ -367,24 +371,24 @@ impl<'tcx> LocalTyCtx<'tcx> {
             | ir::InstructionKind::Free(local_idx, ty) => {
                 // NOTE this would want extending to cover all primitive types given that any further types were added
                 if self.lookup(*local_idx)? == self.ty_sess.make_u64() {
-                    return Err(Diagnostic::new_error(
+                    return Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             local_idx.span(),
                             "cannot free/mark/unmark primitive types",
                         ),
-                    ));
+                    )));
                 }
                 if self.lookup(*local_idx)? != *ty {
-                    return Err(Diagnostic::new_bug(
+                    return Err(Box::from(Diagnostic::new_bug(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             local_idx.span(),
                             "attempted to free/mark/unmark data of one type as another",
                         ),
-                    ));
+                    )));
                 }
             }
             _ => {}
@@ -404,14 +408,14 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::Terminator::Return(local_idx) => {
                 let body_ty = self.lookup(*local_idx)?;
                 if body_ty != self.prototype.return_ty {
-                    Err(Diagnostic::new_error(
+                    Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             local_idx.span(),
                             "return type does not match type of returned expression",
                         ),
-                    ))
+                    )))
                 } else {
                     Ok(())
                 }
@@ -421,14 +425,14 @@ impl<'tcx> LocalTyCtx<'tcx> {
                 for arm in arms.iter() {
                     let pattern_ty = self.check_pattern(source_ty, &arm.pattern, arm.span)?;
                     if pattern_ty != source_ty {
-                        return Err(Diagnostic::new_error(
+                        return Err(Box::from(Diagnostic::new_error(
                             "type mismatch",
                             Label::new(
                                 self.file_id,
                                 source.span(),
                                 "match arm contains pattern with type incompatible with that of the match source",
                             ),
-                        ));
+                        )));
                     }
                     self.check_block(&arm.target)?;
                 }
@@ -479,10 +483,10 @@ impl<'tcx> LocalTyCtx<'tcx> {
             .collect::<HashMap<_, _>>()
             .into_idx_vec()
             .ok_or_else(|| {
-                Diagnostic::new_bug(
+                Box::from(Diagnostic::new_bug(
                     "failed to collect type environment for function",
                     Label::new(global_ctx.file_id, def.span, "not all local indices were typed"),
-                )
+                ))
             })
     }
 }
