@@ -21,6 +21,12 @@ pub struct CommandOptions {
     pub out: PathBuf,
     #[structopt(long = "gc", default_value = "none")]
     pub gc: Gc,
+    #[structopt(long = "triple")]
+    pub triple: Option<String>,
+    #[structopt(long = "cpu-name")]
+    pub cpu_name: Option<String>,
+    #[structopt(long = "cpu-features")]
+    pub cpu_features: Option<String>,
     #[structopt(long = "debug")]
     pub debug: bool,
 }

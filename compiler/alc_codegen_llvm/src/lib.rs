@@ -10,7 +10,7 @@ use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
-    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine},
+    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType},
     values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue, VectorValue},
     AddressSpace,
@@ -396,8 +396,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         let mut output_path = PathBuf::from(path.as_ref());
         output_path.set_extension("o");
 
-        let compile_result = target_machine
-            .unwrap()
+        let compile_result = target_machine?
             .write_to_file(self.module, FileType::Object, output_path.as_path())
             .map_err(|e| {
                 Diagnostic::new_error(
@@ -414,10 +413,28 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn get_target_machine(&self) -> Result<TargetMachine> {
         Target::initialize_native(&InitializationConfig::default()).unwrap();
-        let triple = TargetMachine::get_default_triple();
-        let target = Target::from_triple(&triple).unwrap();
-        let cpu = TargetMachine::get_host_cpu_name();
-        let features = TargetMachine::get_host_cpu_features();
+        let triple = match &self.command_options.triple {
+            Some(triple) => TargetTriple::create(triple.as_str()),
+            None => TargetMachine::get_default_triple(),
+        };
+        let target = match Target::from_triple(&triple) {
+            Ok(target) => target,
+            Err(e) => {
+                return Err(Box::from(Diagnostic::new_error(
+                    "failed to get target",
+                    Label::new(self.file_id, Span::dummy(), format!("{}", e)),
+                )))
+            }
+        };
+
+        let cpu = match &self.command_options.cpu_name {
+            Some(cpu) => cpu.to_string(),
+            None => TargetMachine::get_host_cpu_name().to_string(),
+        };
+        let features = match &self.command_options.cpu_features {
+            Some(features) => features.to_string(),
+            None => TargetMachine::get_host_cpu_features().to_string(),
+        };
 
         let opt_level = OptimizationLevel::Default;
         let reloc_mode = RelocMode::Default;
@@ -426,8 +443,8 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         target
             .create_target_machine(
                 &triple,
-                cpu.to_string().as_str(),
-                features.to_string().as_str(),
+                cpu.as_str(),
+                features.as_str(),
                 opt_level,
                 reloc_mode,
                 code_model,
