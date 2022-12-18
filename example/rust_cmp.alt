@@ -1,6 +1,13 @@
+struct Foo {
+    var: u64,
+}
+
 func main() u64 {
-    let foo = "foo"
+    let foo: Foo = Foo {
+        var: 1,
+    }
     let bar = foo
-    println(foo)
-    0
+    // println(foo.var)
+    // 0
+    foo.var
 }
