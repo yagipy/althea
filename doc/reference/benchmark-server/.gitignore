@@ -2,3 +2,4 @@ infra/credential/docker.admin.env
 infra/**/.terraform
 infra/**/*.tfstate
 infra/**/*.tfstate.*
+vagrant/.vagrant
