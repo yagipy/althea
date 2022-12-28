@@ -32,3 +32,20 @@ sudo systemctl start benchmark-server
 ```shell
 curl <PUBLIC_IP>
 ```
+
+## Apply local changes to production server
+- Execute on client
+```shell
+git push -u origin <TARGET_BRANCH>
+docker-compose run --rm cli aws ssm start-session --target <INSTANCE_ID> --document-name benchmark-server-deployer
+```
+
+- Execute on instance
+```shell
+sudo su - root
+cd /root/althea/doc/reference/benchmark-server/app
+git pull
+git chechout <TARGET_BRANCH>
+go build -o /usr/local/bin/benchmark-server /root/althea/doc/reference/benchmark-server/app/main.go
+sudo systemctl start benchmark-server
+```
