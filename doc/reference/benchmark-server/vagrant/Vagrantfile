@@ -12,7 +12,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: <<-SHELL
     snap install go --classic
     sudo cp /althea/doc/reference/benchmark-server/systemd/* /etc/systemd/system
-    go build /althea/doc/reference/benchmark-server/app/main.go -o usr/local/bin/benchmark-server
+    go build /althea/doc/reference/benchmark-server/app/main.go -o /usr/local/bin/benchmark-server
     sudo systemctl start benchmark-server
   SHELL
 end

@@ -20,6 +20,7 @@ resource "aws_instance" "api" {
   iam_instance_profile = aws_iam_instance_profile.deployer.name
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.allow_http.id]
+  user_data = file("./shell/init.sh")
 }
 
 resource "aws_eip" "api" {
