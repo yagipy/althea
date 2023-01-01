@@ -4,12 +4,13 @@
 Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/focal64"
   config.vm.network "forwarded_port", guest: 80, host: 80
-  config.vm.synced_folder "../../../../../althea", "/root/althea"
+  config.vm.network "forwarded_port", guest: 3000, host: 3000
+  config.vm.synced_folder "../../../../althea", "/root/althea"
 
   config.vm.provision "shell", inline: <<-SHELL
     sudo su - root
     apt update
-    apt install build-essential libfontconfig1-dev -y
+    apt install build-essential libfontconfig1-dev clang -y
 
     snap install rustup --classic
     rustup install stable
@@ -17,9 +18,7 @@ Vagrant.configure("2") do |config|
     wget https://apt.llvm.org/llvm.sh
     chmod +x llvm.sh
     ./llvm.sh 14
-    ln -sf /root/althea/doc/reference/benchmark-server-althea/systemd/* /etc/systemd/system
-    cd /root/althea
-    cargo run -- /root/althea/doc/reference/benchmark-server-althea/app/main.alt -o /usr/local/bin/benchmark-server-althea
-    systemctl start benchmark-server-althea
+    # cargo run -- /root/althea/doc/reference/benchmark-server-althea/app/main.alt -o /usr/local/bin/benchmark-server-althea
+    # benchmark-server-althea
   SHELL
 end

@@ -23,9 +23,8 @@ docker-compose run --rm cli aws ssm start-session --target <INSTANCE_ID> --docum
 - Execute on instance
 ```shell
 sudo su - root
-cd /root/althea/doc/reference/benchmark-server/app
-go build -o /usr/local/bin/benchmark-server /root/althea/doc/reference/benchmark-server/app/main.go
-sudo systemctl start benchmark-server
+go build -o /usr/local/bin/benchmark-server-go /root/althea/doc/reference/benchmark-server-go/app/main.go
+benchmark-server-go
 ```
 
 - Execute on client
@@ -43,9 +42,9 @@ docker-compose run --rm cli aws ssm start-session --target <INSTANCE_ID> --docum
 - Execute on instance
 ```shell
 sudo su - root
-cd /root/althea/doc/reference/benchmark-server/app
+cd /root/althea
 git pull
 git chechout <TARGET_BRANCH>
-go build -o /usr/local/bin/benchmark-server /root/althea/doc/reference/benchmark-server/app/main.go
-sudo systemctl start benchmark-server
+go build -o /usr/local/bin/benchmark-server-go /root/althea/doc/reference/benchmark-server-go/app/main.go
+benchmark-server-go
 ```
