@@ -21,7 +21,14 @@ use std::path::{Path, PathBuf};
 
 const ALC_FREE: &str = "alc_free";
 const ALC_RESET: &str = "alc_reset";
-const PRINTF: &str = "puts";
+const PRINTF: &str = "printf";
+const SOCKET: &str = "socket";
+const BIND: &str = "bind";
+const LISTEN: &str = "listen";
+const ACCEPT: &str = "accept";
+const RECV: &str = "recv";
+const SEND: &str = "send";
+const CLOSE: &str = "close";
 
 pub fn generate<'a>(
     command_options: &'a CommandOptions,
@@ -105,6 +112,106 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             ),
             None,
         );
+        self.module.add_function(
+            SOCKET,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            BIND,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            LISTEN,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            ACCEPT,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context
+                        .i32_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            RECV,
+            self.context.i64_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context.i64_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            SEND,
+            self.context.i64_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context.i64_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            CLOSE,
+            self.context
+                .i32_type()
+                .fn_type(&[self.context.i32_type().as_basic_type_enum().into()], false),
+            None,
+        );
     }
 
     fn lookup_def(&self, def: ir::DefIdx, span: Span) -> Result<FunctionValue<'ctx>> {
@@ -154,7 +261,12 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     }
 
     #[inline]
-    fn compile_literal(&self, literal: u64) -> IntValue<'ctx> {
+    fn compile_i32_literal(&self, literal: i32) -> IntValue<'ctx> {
+        self.context.i32_type().const_int(literal as u64, false)
+    }
+
+    #[inline]
+    fn compile_i64_literal(&self, literal: u64) -> IntValue<'ctx> {
         self.context.i64_type().const_int(literal, false)
     }
 
@@ -165,7 +277,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     #[inline]
     fn compile_variant_idx(&self, idx: ty::VariantIdx) -> IntValue<'ctx> {
-        self.compile_literal(idx.index() as u64)
+        self.compile_i32_literal(idx.index() as i32)
     }
 
     #[inline]
@@ -330,6 +442,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn compile_basic_ty_unboxed(&self, ty: ty::Ty) -> BasicTypeEnum<'ctx> {
         match &*self.ty_sess.ty_kind(ty) {
+            ty::TyKind::I32 => self.context.i32_type().into(),
             ty::TyKind::U64 => self.context.i64_type().into(),
             ty::TyKind::Enum(_) => {
                 let field_tys = vec![self.context.i64_type().into(), self.context.i64_type().into()];
@@ -350,7 +463,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn compile_basic_ty(&self, ty: ty::Ty) -> BasicTypeEnum<'ctx> {
         let compiled_ty_unboxed = self.compile_basic_ty_unboxed(ty);
-        if self.ty_sess.ty_kind(ty).is_u64() {
+        if self.ty_sess.ty_kind(ty).is_u64() || self.ty_sess.ty_kind(ty).is_i32() {
             compiled_ty_unboxed
         } else {
             compiled_ty_unboxed.ptr_type(AddressSpace::Generic).into()

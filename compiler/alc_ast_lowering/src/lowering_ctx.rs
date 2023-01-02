@@ -171,6 +171,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
 
     fn lower_expr_kind(&mut self, expr: &'ast ast::Expr, span: Span) -> Result<ir::ExprKind> {
         Ok(match expr {
+            ast::Expr::I32Literal(literal) => ir::ExprKind::I32Literal(*literal),
             ast::Expr::U64Literal(literal) => ir::ExprKind::U64Literal(*literal),
             ast::Expr::StringLiteral(literal) => ir::ExprKind::StringLiteral(literal.clone()),
             ast::Expr::Var(stream) => {
@@ -264,6 +265,13 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     )));
                 }
             }
+            ast::Expr::Socket { domain, ty, protocol } => {
+                // TODO: Noneやめる
+                let domain = self.lower_expr(None, domain, domain.span())?;
+                let ty = self.lower_expr(None, ty, ty.span())?;
+                let protocol = self.lower_expr(None, protocol, protocol.span())?;
+                ir::ExprKind::Socket { domain, ty, protocol }
+            }
         })
     }
 
@@ -328,6 +336,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
     ) -> Result<ir::Arm> {
         let mut ctx = self.mk_child();
         let pattern = match pattern {
+            ast::Pattern::I32Literal(literal) => ir::PatternKind::I32Literal(*literal),
             ast::Pattern::U64Literal(literal) => ir::PatternKind::U64Literal(*literal),
             ast::Pattern::StringLiteral(literal) => ir::PatternKind::StringLiteral(literal.clone()),
             ast::Pattern::Ident(ident) => {

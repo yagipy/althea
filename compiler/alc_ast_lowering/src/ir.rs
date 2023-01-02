@@ -122,6 +122,7 @@ pub enum BinopKind {
 
 #[derive(Clone, Debug)]
 pub enum ExprKind {
+    I32Literal(i32),
     U64Literal(u64),
     StringLiteral(String),
     Var(LocalIdx, Vec<FieldIdx>),
@@ -147,6 +148,11 @@ pub enum ExprKind {
         ty: Ty,
         fields: IdxVec<FieldIdx, LocalIdx>,
     },
+    Socket {
+        domain: LocalIdx,
+        ty: LocalIdx,
+        protocol: LocalIdx,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -158,6 +164,7 @@ pub struct Expr {
 
 #[derive(Clone, Debug)]
 pub enum PatternKind {
+    I32Literal(i32),
     U64Literal(u64),
     StringLiteral(String),
     Ident(LocalIdx),

@@ -207,7 +207,16 @@ impl<'a> Parser<'a> {
         Ok(token.span().span(token.value().unwrap().to_string()))
     }
 
-    fn unpack_literal(&self, data: &str, span: Span) -> Result<u64> {
+    fn unpack_i32_literal(&self, data: &str, span: Span) -> Result<i32> {
+        data.parse::<i32>().map_err(|err| {
+            Box::from(Diagnostic::new_bug(
+                "failed to parse i32 literal",
+                Label::new(self.file_id, span, err.to_string()),
+            ))
+        })
+    }
+
+    fn unpack_u64_literal(&self, data: &str, span: Span) -> Result<u64> {
         data.parse::<u64>().map_err(|err| {
             Box::from(Diagnostic::new_bug(
                 "failed to parse u64 literal",
@@ -216,11 +225,18 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn next_literal(&mut self) -> Result<Spanned<u64>> {
+    fn next_i32_literal(&mut self) -> Result<Spanned<i32>> {
+        let token = self.eat(Kind::I32Literal)?;
+        Ok(token
+            .span()
+            .span(self.unpack_i32_literal(token.value().unwrap(), token.span())?))
+    }
+
+    fn next_u64_literal(&mut self) -> Result<Spanned<u64>> {
         let token = self.eat(Kind::U64Literal)?;
         Ok(token
             .span()
-            .span(self.unpack_literal(token.value().unwrap(), token.span())?))
+            .span(self.unpack_u64_literal(token.value().unwrap(), token.span())?))
     }
 
     fn next_string_literal(&mut self) -> Result<Spanned<String>> {
@@ -231,6 +247,8 @@ impl<'a> Parser<'a> {
     fn next_ty(&mut self) -> Result<Spanned<ast::Ty>> {
         if self.next_is(Kind::U64Ty) {
             Ok(self.eat(Kind::U64Ty)?.span().span(ast::Ty::U64))
+        } else if self.next_is(Kind::I32Ty) {
+            Ok(self.eat(Kind::I32Ty)?.span().span(ast::Ty::I32))
         } else if self.next_is(Kind::StringTy) {
             Ok(self.eat(Kind::StringTy)?.span().span(ast::Ty::String))
         } else {
@@ -303,8 +321,11 @@ impl<'a> Parser<'a> {
                 )
             })?;
             Ok(span.span(ast::Expr::StringLiteral(expanded)))
+        } else if self.next_is(Kind::I32Literal) {
+            let literal = self.next_i32_literal()?;
+            Ok(literal.span().span(ast::Expr::I32Literal(literal.into_raw())))
         } else if self.next_is(Kind::U64Literal) {
-            let literal = self.next_literal()?;
+            let literal = self.next_u64_literal()?;
             Ok(literal.span().span(ast::Expr::U64Literal(literal.into_raw())))
         } else if self.next_is(Kind::StringLiteral) {
             let literal = self.next_string_literal()?;
@@ -314,6 +335,20 @@ impl<'a> Parser<'a> {
             let expr = self.next_expr()?;
             self.eat(Kind::RParen)?;
             Ok(expr)
+        } else if self.next_is(Kind::Socket) {
+            let span = self.eat(Kind::Socket)?.span();
+            self.eat(Kind::LParen)?;
+            let domain = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let ty = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let protocol = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            Ok(span.span(ast::Expr::Socket {
+                domain: domain.boxed(),
+                ty: ty.boxed(),
+                protocol: protocol.boxed(),
+            }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)
         } else if self.next_is_unop() {
@@ -373,8 +408,11 @@ impl<'a> Parser<'a> {
 
     fn next_pattern(&mut self) -> Result<Spanned<ast::Pattern>> {
         if self.next_is(Kind::U64Literal) {
-            let literal = self.next_literal()?;
+            let literal = self.next_u64_literal()?;
             Ok(literal.span().span(ast::Pattern::U64Literal(literal.into_raw())))
+        } else if self.next_is(Kind::I32Literal) {
+            let literal = self.next_i32_literal()?;
+            Ok(literal.span().span(ast::Pattern::I32Literal(literal.into_raw())))
         } else if self.next_is(Kind::StringLiteral) {
             let literal = self.next_string_literal()?;
             Ok(literal
@@ -434,7 +472,6 @@ impl<'a> Parser<'a> {
             self.eat(Kind::LParen)?;
             let expr = self.next_expr()?;
             self.eat(Kind::RParen)?;
-            // self.eat(Kind::Semi)?;
             let body = self.next_term()?;
             Ok(span.merge(body.span()).span(ast::Term::Println {
                 expr,
