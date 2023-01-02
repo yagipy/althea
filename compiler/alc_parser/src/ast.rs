@@ -4,6 +4,7 @@ pub type Ident = String;
 
 #[derive(Debug)]
 pub enum Ty {
+    I32,
     U64,
     String,
     TyName(Ident),
@@ -41,6 +42,7 @@ pub enum BinopKind {
 
 #[derive(Debug)]
 pub enum Expr {
+    I32Literal(i32),
     U64Literal(u64),
     StringLiteral(String),
     Var(Vec<Spanned<Ident>>),
@@ -66,10 +68,16 @@ pub enum Expr {
         struct_name: Spanned<Ident>,
         fields: Vec<(Spanned<Ident>, Spanned<Expr>)>,
     },
+    Socket {
+        domain: Spanned<Box<Expr>>,
+        ty: Spanned<Box<Expr>>,
+        protocol: Spanned<Box<Expr>>,
+    },
 }
 
 #[derive(Debug)]
 pub enum Pattern {
+    I32Literal(i32),
     U64Literal(u64),
     StringLiteral(String),
     Ident(Ident),

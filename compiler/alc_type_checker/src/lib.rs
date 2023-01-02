@@ -123,6 +123,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
 
     fn check_expr_kind(&mut self, expr_kind: &ir::ExprKind, span: Span) -> Result<ty::Ty> {
         match expr_kind {
+            ir::ExprKind::I32Literal(_) => Ok(self.ty_sess.make_i32()),
             ir::ExprKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
             ir::ExprKind::StringLiteral(_) => Ok(self.ty_sess.make_string()),
             ir::ExprKind::Var(local_idx, _) => self.lookup(*local_idx),
@@ -272,6 +273,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                 }
                 Ok(*ty)
             }
+            ir::ExprKind::Socket { .. } => Ok(self.ty_sess.make_i32()),
         }
     }
 
@@ -286,6 +288,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
         span: Span,
     ) -> Result<ty::Ty> {
         match pattern_kind {
+            ir::PatternKind::I32Literal(_) => Ok(self.ty_sess.make_i32()),
             ir::PatternKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
             ir::PatternKind::StringLiteral(_) => Ok(self.ty_sess.make_string()),
             ir::PatternKind::Ident(binding) => {

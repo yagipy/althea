@@ -22,6 +22,7 @@ pub enum Kind {
     Func,
     Struct,
     Enum,
+    I32Ty,
     U64Ty,
     StringTy,
     Eq,
@@ -36,11 +37,19 @@ pub enum Kind {
     RAngle,
     LCurl,
     RCurl,
+    I32Literal,
     U64Literal,
     StringLiteral,
     Env,
     Dot,
     Println,
+    Socket,
+    Bind,
+    Listen,
+    Accept,
+    Recv,
+    Send,
+    Close,
 }
 
 #[derive(Clone, Debug)]

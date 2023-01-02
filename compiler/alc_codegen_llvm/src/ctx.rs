@@ -1,4 +1,4 @@
-use crate::{CodegenLLVM, PRINTF};
+use crate::{CodegenLLVM, PRINTF, SOCKET};
 use alc_ast_lowering::{ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
@@ -115,6 +115,9 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
 
     fn compile_expr(&mut self, expr: &ir::Expr) -> Result<BasicValueEnum<'ctx>> {
         match &expr.kind {
+            ir::ExprKind::I32Literal(literal) => {
+                Ok(self.context.i32_type().const_int(*literal as u64, false).into())
+            }
             ir::ExprKind::U64Literal(literal) => {
                 Ok(self.context.i64_type().const_int(*literal, false).into())
             }
@@ -162,6 +165,27 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 }
                 // TODO: GC
                 Ok(record.into())
+            }
+            ir::ExprKind::Socket { domain, ty, protocol } => {
+                let domain = self.lookup(*domain)?.into_int_value();
+                let ty = self.lookup(*ty)?.into_int_value();
+                let protocol = self.lookup(*protocol)?.into_int_value();
+                let socket = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(SOCKET).unwrap(),
+                        &[domain.into(), ty.into(), protocol.into()],
+                        "socket",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(socket)
             }
         }
     }
@@ -230,7 +254,8 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
         pattern: &ir::PatternKind,
     ) -> MatchCase<'ctx> {
         match pattern {
-            ir::PatternKind::U64Literal(literal) => MatchCase::Literal(self.compile_literal(*literal)),
+            ir::PatternKind::I32Literal(literal) => MatchCase::Literal(self.compile_i32_literal(*literal)),
+            ir::PatternKind::U64Literal(literal) => MatchCase::Literal(self.compile_i64_literal(*literal)),
             ir::PatternKind::StringLiteral(literal) => {
                 MatchCase::StringLiteral(self.compile_string_literal(literal))
             }

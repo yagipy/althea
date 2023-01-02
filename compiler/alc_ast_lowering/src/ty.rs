@@ -88,6 +88,7 @@ impl Idx for ParamIdx {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum TyKind {
     U64,
+    I32,
     String,
     Enum(Enum),
     Struct(Struct),
@@ -177,8 +178,18 @@ impl TyKind {
     }
 
     #[inline]
+    pub fn is_i32(&self) -> bool {
+        matches!(self, TyKind::I32)
+    }
+
+    #[inline]
     pub fn is_u64(&self) -> bool {
         matches!(self, TyKind::U64)
+    }
+
+    #[inline]
+    pub fn is_string(&self) -> bool {
+        matches!(self, TyKind::String)
     }
 
     #[inline]
@@ -236,6 +247,10 @@ impl TySess {
 
     pub fn make_u64(&self) -> Ty {
         self.make_unique(TyKind::U64)
+    }
+
+    pub fn make_i32(&self) -> Ty {
+        self.make_unique(TyKind::I32)
     }
 
     pub fn make_string(&self) -> Ty {

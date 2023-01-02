@@ -1,0 +1,6 @@
+func main() i32 {
+    println("Hello, world")
+    let socket_id = socket(1, 1, 1)
+    // println(socket_id)
+    0
+}
