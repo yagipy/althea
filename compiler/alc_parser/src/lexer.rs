@@ -19,8 +19,7 @@ impl<'a> Iterator for Lexer<'a> {
                 self.skip_whitespace();
                 return self.next();
             }
-            // TODO: 数値リテラルのハンドリング方針を決める
-            c if c.is_ascii_digit() => Token::new(Kind::I32Literal, &self.next_literal(c)),
+            c if c.is_ascii_digit() => Token::new(Kind::NumberLiteral, &self.next_literal(c)),
             c if c.is_alphabetic() || c == '_' => self.next_ident_or_keyword(c),
             '"' => self.next_string_literal()?,
             '!' => match self.nth_char(0) {
@@ -189,6 +188,8 @@ impl<'a> Lexer<'a> {
             "func" => Kind::Func.into(),
             "struct" => Kind::Struct.into(),
             "enum" => Kind::Enum.into(),
+            "i8" => Kind::I8Ty.into(),
+            "i16" => Kind::I16Ty.into(),
             "i32" => Kind::I32Ty.into(),
             "u64" => Kind::U64Ty.into(),
             "string" => Kind::StringTy.into(),

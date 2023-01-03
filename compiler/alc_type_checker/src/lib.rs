@@ -27,6 +27,28 @@ struct TyCtx<'tcx> {
 }
 
 impl<'tcx> TyCtx<'tcx> {
+    fn check_ir(
+        command_options: &'tcx CommandOptions,
+        file_id: FileId,
+        ty_sess: &'tcx ty::TySess,
+        ir: &'tcx ir::Ir,
+    ) -> Result<TyEnv> {
+        let mut global_ctx = TyCtx {
+            command_options,
+            file_id,
+            ty_sess,
+            tys: HashMap::new(),
+        };
+        for (def_idx, def) in ir.defs.iter() {
+            global_ctx.bind(def_idx, def.ty, def.span)?;
+        }
+        let mut env = IdxVec::new();
+        for def in ir.defs.values() {
+            env.push(LocalTyCtx::check_def(&global_ctx, def)?);
+        }
+        Ok(env)
+    }
+
     fn bind(&mut self, idx: ir::DefIdx, ty: ty::Ty, span: Span) -> Result<()> {
         if let Some((other_span, other_ty)) = self.tys.insert(idx, (span, ty)) {
             return Err(Box::from(
@@ -54,28 +76,6 @@ impl<'tcx> TyCtx<'tcx> {
             )))
         }
     }
-
-    fn check_ir(
-        command_options: &'tcx CommandOptions,
-        file_id: FileId,
-        ty_sess: &'tcx ty::TySess,
-        ir: &'tcx ir::Ir,
-    ) -> Result<TyEnv> {
-        let mut global_ctx = TyCtx {
-            command_options,
-            file_id,
-            ty_sess,
-            tys: HashMap::new(),
-        };
-        for (def_idx, def) in ir.defs.iter() {
-            global_ctx.bind(def_idx, def.ty, def.span)?;
-        }
-        let mut env = IdxVec::new();
-        for def in ir.defs.values() {
-            env.push(LocalTyCtx::check_def(&global_ctx, def)?);
-        }
-        Ok(env)
-    }
 }
 
 struct LocalTyCtx<'tcx> {
@@ -85,6 +85,62 @@ struct LocalTyCtx<'tcx> {
 }
 
 impl<'tcx> LocalTyCtx<'tcx> {
+    fn check_def(global_ctx: &'tcx TyCtx<'tcx>, def: &ir::Def) -> Result<IdxVec<ir::LocalIdx, ty::Ty>> {
+        let prototype = global_ctx
+            .ty_sess
+            .ty_kind(def.ty)
+            .as_prototype()
+            .cloned()
+            .ok_or_else(|| {
+                Diagnostic::new_bug(
+                    "failed to read fn type",
+                    Label::new(
+                        global_ctx.file_id,
+                        def.span,
+                        "function prototype could not be read",
+                    ),
+                )
+            })?;
+        let mut local_ctx = LocalTyCtx {
+            global_ctx,
+            prototype,
+            tys: HashMap::new(),
+        };
+        local_ctx.check_entry(&def.entry)?;
+        local_ctx
+            .tys
+            .into_iter()
+            .map(|(idx, (_, ty))| (idx, ty))
+            .collect::<HashMap<_, _>>()
+            .into_idx_vec()
+            .ok_or_else(|| {
+                Box::from(Diagnostic::new_bug(
+                    "failed to collect type environment for function",
+                    Label::new(global_ctx.file_id, def.span, "not all local indices were typed"),
+                ))
+            })
+    }
+
+    fn check_entry(&mut self, entry: &ir::Entry) -> Result<()> {
+        for (param_idx, binding) in entry.param_bindings.iter() {
+            let param_ty = self.prototype.params.get(param_idx).copied().ok_or_else(|| {
+                Diagnostic::new_bug(
+                    "failed to read fn type",
+                    Label::new(self.file_id, binding.span(), "parameter type could not be read"),
+                )
+            })?;
+            self.bind(*binding, param_ty)?;
+        }
+        self.check_block(&entry.body)
+    }
+
+    fn check_block(&mut self, block: &ir::Block) -> Result<()> {
+        for instruction in block.instructions.iter() {
+            self.check_instruction(&instruction.kind, instruction.span)?;
+        }
+        self.check_terminator(&block.terminator)
+    }
+
     fn bind(&mut self, idx: ir::LocalIdx, ty: ty::Ty) -> Result<()> {
         if let Some((other_span, other_ty)) = self.tys.insert(idx, (idx.span(), ty)) {
             return Err(Box::from(
@@ -123,6 +179,8 @@ impl<'tcx> LocalTyCtx<'tcx> {
 
     fn check_expr_kind(&mut self, expr_kind: &ir::ExprKind, span: Span) -> Result<ty::Ty> {
         match expr_kind {
+            ir::ExprKind::I8Literal(_) => Ok(self.ty_sess.make_i8()),
+            ir::ExprKind::I16Literal(_) => Ok(self.ty_sess.make_i16()),
             ir::ExprKind::I32Literal(_) => Ok(self.ty_sess.make_i32()),
             ir::ExprKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
             ir::ExprKind::StringLiteral(_) => Ok(self.ty_sess.make_string()),
@@ -288,6 +346,8 @@ impl<'tcx> LocalTyCtx<'tcx> {
         span: Span,
     ) -> Result<ty::Ty> {
         match pattern_kind {
+            ir::PatternKind::I8Literal(_) => Ok(self.ty_sess.make_i8()),
+            ir::PatternKind::I16Literal(_) => Ok(self.ty_sess.make_i16()),
             ir::PatternKind::I32Literal(_) => Ok(self.ty_sess.make_i32()),
             ir::PatternKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
             ir::PatternKind::StringLiteral(_) => Ok(self.ty_sess.make_string()),
@@ -399,13 +459,6 @@ impl<'tcx> LocalTyCtx<'tcx> {
         Ok(())
     }
 
-    fn check_block(&mut self, block: &ir::Block) -> Result<()> {
-        for instruction in block.instructions.iter() {
-            self.check_instruction(&instruction.kind, instruction.span)?;
-        }
-        self.check_terminator(&block.terminator)
-    }
-
     fn check_terminator(&mut self, terminator: &ir::Terminator) -> Result<()> {
         match terminator {
             ir::Terminator::Return(local_idx) => {
@@ -442,55 +495,6 @@ impl<'tcx> LocalTyCtx<'tcx> {
                 Ok(())
             }
         }
-    }
-
-    fn check_entry(&mut self, entry: &ir::Entry) -> Result<()> {
-        for (param_idx, binding) in entry.param_bindings.iter() {
-            let param_ty = self.prototype.params.get(param_idx).copied().ok_or_else(|| {
-                Diagnostic::new_bug(
-                    "failed to read fn type",
-                    Label::new(self.file_id, binding.span(), "parameter type could not be read"),
-                )
-            })?;
-            self.bind(*binding, param_ty)?;
-        }
-        self.check_block(&entry.body)
-    }
-
-    fn check_def(global_ctx: &'tcx TyCtx<'tcx>, def: &ir::Def) -> Result<IdxVec<ir::LocalIdx, ty::Ty>> {
-        let prototype = global_ctx
-            .ty_sess
-            .ty_kind(def.ty)
-            .as_prototype()
-            .cloned()
-            .ok_or_else(|| {
-                Diagnostic::new_bug(
-                    "failed to read fn type",
-                    Label::new(
-                        global_ctx.file_id,
-                        def.span,
-                        "function prototype could not be read",
-                    ),
-                )
-            })?;
-        let mut local_ctx = LocalTyCtx {
-            global_ctx,
-            prototype,
-            tys: HashMap::new(),
-        };
-        local_ctx.check_entry(&def.entry)?;
-        local_ctx
-            .tys
-            .into_iter()
-            .map(|(idx, (_, ty))| (idx, ty))
-            .collect::<HashMap<_, _>>()
-            .into_idx_vec()
-            .ok_or_else(|| {
-                Box::from(Diagnostic::new_bug(
-                    "failed to collect type environment for function",
-                    Label::new(global_ctx.file_id, def.span, "not all local indices were typed"),
-                ))
-            })
     }
 }
 

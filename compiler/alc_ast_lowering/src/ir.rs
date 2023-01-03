@@ -122,6 +122,8 @@ pub enum BinopKind {
 
 #[derive(Clone, Debug)]
 pub enum ExprKind {
+    I8Literal(i8),
+    I16Literal(i16),
     I32Literal(i32),
     U64Literal(u64),
     StringLiteral(String),
@@ -164,6 +166,8 @@ pub struct Expr {
 
 #[derive(Clone, Debug)]
 pub enum PatternKind {
+    I8Literal(i8),
+    I16Literal(i16),
     I32Literal(i32),
     U64Literal(u64),
     StringLiteral(String),

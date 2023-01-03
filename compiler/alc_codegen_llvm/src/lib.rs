@@ -261,6 +261,16 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     }
 
     #[inline]
+    fn compile_i8_literal(&self, literal: i8) -> IntValue<'ctx> {
+        self.context.i8_type().const_int(literal as u64, false)
+    }
+
+    #[inline]
+    fn compile_i16_literal(&self, literal: i16) -> IntValue<'ctx> {
+        self.context.i16_type().const_int(literal as u64, false)
+    }
+
+    #[inline]
     fn compile_i32_literal(&self, literal: i32) -> IntValue<'ctx> {
         self.context.i32_type().const_int(literal as u64, false)
     }
@@ -442,6 +452,8 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn compile_basic_ty_unboxed(&self, ty: ty::Ty) -> BasicTypeEnum<'ctx> {
         match &*self.ty_sess.ty_kind(ty) {
+            ty::TyKind::I8 => self.context.i8_type().into(),
+            ty::TyKind::I16 => self.context.i16_type().into(),
             ty::TyKind::I32 => self.context.i32_type().into(),
             ty::TyKind::U64 => self.context.i64_type().into(),
             ty::TyKind::Enum(_) => {
@@ -463,7 +475,11 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn compile_basic_ty(&self, ty: ty::Ty) -> BasicTypeEnum<'ctx> {
         let compiled_ty_unboxed = self.compile_basic_ty_unboxed(ty);
-        if self.ty_sess.ty_kind(ty).is_u64() || self.ty_sess.ty_kind(ty).is_i32() {
+        if self.ty_sess.ty_kind(ty).is_u64()
+            || self.ty_sess.ty_kind(ty).is_i32()
+            || self.ty_sess.ty_kind(ty).is_i16()
+            || self.ty_sess.ty_kind(ty).is_i8()
+        {
             compiled_ty_unboxed
         } else {
             compiled_ty_unboxed.ptr_type(AddressSpace::Generic).into()

@@ -1,6 +1,25 @@
+struct SockAddrIn {
+    family: i16,
+    port: i16,
+    addr: InAddr,
+}
+
+struct InAddr {
+    s_addr: i32,
+}
+
+// sock addrはコンパイラ内部だけで持つ
 func main() i32 {
     println("Hello, world")
-    let socket_id = socket(1, 1, 1)
+    // let socket_id = socket(2, 1, 0)
+    let sock_addr_in = SockAddrIn {
+        family: 2,
+        port: 80,
+        addr: InAddr {
+            s_addr: 0,
+        },
+    }
+    // let bind_id = bind(socket_id, sock_addr_in, 0)
     // println(socket_id)
     0
 }
