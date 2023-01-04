@@ -73,6 +73,8 @@ impl<'a> Iterator for Lexer<'a> {
             },
             '{' => Kind::LCurl.into(),
             '}' => Kind::RCurl.into(),
+            '[' => Kind::LSquare.into(),
+            ']' => Kind::RSquare.into(),
             ',' => Kind::Comma.into(),
             ';' => Kind::Semi.into(),
             ':' => match self.nth_char(0) {

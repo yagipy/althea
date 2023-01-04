@@ -191,6 +191,30 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 ir::ExprKind::I32Literal(*literal as i32)
             }
             ast::Expr::U64Literal(literal) => ir::ExprKind::U64Literal(*literal),
+            ast::Expr::ArrayLiteral(elements) => {
+                let mut lowered_elements = Vec::with_capacity(elements.len());
+                let element_ty = self
+                    .sess
+                    .tys
+                    .ty_sess()
+                    .ty_kind(ty.unwrap())
+                    .as_array()
+                    .unwrap()
+                    .element_ty;
+                if self.sess.tys.ty_sess().ty_kind(ty.unwrap()).is_array() {
+                    for element in elements {
+                        lowered_elements.push(self.lower_expr_kind(
+                            Some(element_ty),
+                            element,
+                            element.span(),
+                        )?);
+                    }
+                }
+                ir::ExprKind::ArrayLiteral {
+                    element_ty,
+                    elements: lowered_elements,
+                }
+            }
             ast::Expr::StringLiteral(literal) => ir::ExprKind::StringLiteral(literal.clone()),
             ast::Expr::Var(stream) => {
                 let (local_idx, ty) = self.lookup(stream.first().unwrap(), span)?;
@@ -292,6 +316,22 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 let protocol = self.lower_expr(None, protocol, protocol.span())?;
                 ir::ExprKind::Socket { domain, ty, protocol }
             }
+            ast::Expr::Bind {
+                socket_file_descriptor,
+                address,
+                address_length,
+            } => {
+                // TODO: Noneやめる
+                let socket_file_descriptor =
+                    self.lower_expr(None, socket_file_descriptor, socket_file_descriptor.span())?;
+                let address = self.lower_expr(None, address, address.span())?;
+                let address_length = self.lower_expr(None, address_length, address_length.span())?;
+                ir::ExprKind::Bind {
+                    socket_file_descriptor,
+                    address,
+                    address_length,
+                }
+            }
         })
     }
 
@@ -361,6 +401,17 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 ir::PatternKind::I32Literal(*literal as i32)
             }
             ast::Pattern::U64Literal(literal) => ir::PatternKind::U64Literal(*literal),
+            ast::Pattern::ArrayLiteral(_) => {
+                unimplemented!();
+                // let mut lowered_elements = Vec::with_capacity(elements.len());
+                // for element in elements.iter() {
+                //     lowered_elements.push(ctx.lower_expr_kind(None, element, element.span())?);
+                // }
+                // ir::PatternKind::ArrayLiteral {
+                //     element_ty: None,
+                //     elements: lowered_elements,
+                // }
+            }
             ast::Pattern::StringLiteral(literal) => ir::PatternKind::StringLiteral(literal.clone()),
             ast::Pattern::Ident(ident) => {
                 let local_idx = self.local_idxr.next().with_span(pattern_span);

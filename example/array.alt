@@ -1,0 +1,12 @@
+struct Foo {
+    bar: [i8; 3],
+    baz: i32,
+}
+
+func main() i32 {
+    let a: Foo = Foo {
+        bar: [1, 2, 3],
+        baz: 4,
+    }
+    a.baz
+}

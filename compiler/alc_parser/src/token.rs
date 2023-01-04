@@ -39,6 +39,8 @@ pub enum Kind {
     RAngle,
     LCurl,
     RCurl,
+    LSquare,
+    RSquare,
     NumberLiteral,
     U64Literal,
     StringLiteral,

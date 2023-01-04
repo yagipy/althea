@@ -3,7 +3,7 @@ mod ctx;
 extern crate core;
 
 use crate::ctx::CodegenLLVMCtx;
-use alc_ast_lowering::{idx::Idx, ir, ty};
+use alc_ast_lowering::{idx::Idx, ir, ir::ExprKind, ty, ty::Array};
 use alc_command_option::CommandOptions;
 use alc_diagnostic::{Diagnostic, FileId, Label, Result, Span};
 use inkwell::{
@@ -12,7 +12,7 @@ use inkwell::{
     module::Module,
     targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue, VectorValue},
+    values::{ArrayValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue, VectorValue},
     AddressSpace,
     OptimizationLevel,
 };
@@ -130,7 +130,13 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 &[
                     self.context.i32_type().as_basic_type_enum().into(),
                     self.context
-                        .i8_type()
+                        .struct_type(
+                            &[
+                                self.context.i16_type().as_basic_type_enum(),
+                                self.context.i8_type().array_type(14).as_basic_type_enum(),
+                            ],
+                            false,
+                        )
                         .ptr_type(AddressSpace::Generic)
                         .as_basic_type_enum()
                         .into(),
@@ -278,6 +284,51 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     #[inline]
     fn compile_i64_literal(&self, literal: u64) -> IntValue<'ctx> {
         self.context.i64_type().const_int(literal, false)
+    }
+
+    #[inline]
+    fn compile_array_literal(&self, element_ty: ty::Ty, elements: Vec<ExprKind>) -> ArrayValue<'ctx> {
+        match &*self.ty_sess.ty_kind(element_ty) {
+            ty::TyKind::I8 => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    if let ExprKind::I8Literal(literal) = element {
+                        values.push(self.compile_i8_literal(literal))
+                    }
+                }
+                self.context.i8_type().const_array(&values)
+            }
+            ty::TyKind::I16 => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    if let ExprKind::I16Literal(literal) = element {
+                        values.push(self.compile_i16_literal(literal))
+                    }
+                }
+                self.context.i16_type().const_array(&values)
+            }
+            ty::TyKind::I32 => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    if let ExprKind::I32Literal(literal) = element {
+                        values.push(self.compile_i32_literal(literal))
+                    }
+                }
+                self.context.i32_type().const_array(&values)
+            }
+            ty::TyKind::U64 => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    if let ExprKind::U64Literal(literal) = element {
+                        values.push(self.compile_i64_literal(literal))
+                    }
+                }
+                self.context.i64_type().const_array(&values)
+            }
+            _ => {
+                panic!("unimplemented array literal type");
+            }
+        }
     }
 
     #[inline]
@@ -456,6 +507,9 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             ty::TyKind::I16 => self.context.i16_type().into(),
             ty::TyKind::I32 => self.context.i32_type().into(),
             ty::TyKind::U64 => self.context.i64_type().into(),
+            ty::TyKind::Array(Array { element_ty: _, size }) => {
+                self.context.i8_type().array_type(*size as u32).into()
+            }
             ty::TyKind::Enum(_) => {
                 let field_tys = vec![self.context.i64_type().into(), self.context.i64_type().into()];
                 // TODO: GC
@@ -479,6 +533,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             || self.ty_sess.ty_kind(ty).is_i32()
             || self.ty_sess.ty_kind(ty).is_i16()
             || self.ty_sess.ty_kind(ty).is_i8()
+            || self.ty_sess.ty_kind(ty).is_array()
         {
             compiled_ty_unboxed
         } else {

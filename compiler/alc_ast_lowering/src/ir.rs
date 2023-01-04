@@ -126,6 +126,10 @@ pub enum ExprKind {
     I16Literal(i16),
     I32Literal(i32),
     U64Literal(u64),
+    ArrayLiteral {
+        element_ty: Ty,
+        elements: Vec<ExprKind>,
+    },
     StringLiteral(String),
     Var(LocalIdx, Vec<FieldIdx>),
     Unop {
@@ -155,6 +159,11 @@ pub enum ExprKind {
         ty: LocalIdx,
         protocol: LocalIdx,
     },
+    Bind {
+        socket_file_descriptor: LocalIdx,
+        address: LocalIdx,
+        address_length: LocalIdx,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -170,6 +179,10 @@ pub enum PatternKind {
     I16Literal(i16),
     I32Literal(i32),
     U64Literal(u64),
+    ArrayLiteral {
+        element_ty: Ty,
+        elements: Vec<ExprKind>,
+    },
     StringLiteral(String),
     Ident(LocalIdx),
     Variant {

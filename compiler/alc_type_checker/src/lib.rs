@@ -183,41 +183,44 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::ExprKind::I16Literal(_) => Ok(self.ty_sess.make_i16()),
             ir::ExprKind::I32Literal(_) => Ok(self.ty_sess.make_i32()),
             ir::ExprKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
+            ir::ExprKind::ArrayLiteral { element_ty, elements } => {
+                Ok(self.ty_sess.make_array(*element_ty, elements.len() as i32))
+            }
             ir::ExprKind::StringLiteral(_) => Ok(self.ty_sess.make_string()),
             ir::ExprKind::Var(local_idx, _) => self.lookup(*local_idx),
             ir::ExprKind::Unop { operand, .. } => {
                 // NOTE this is a bit of a hack, but at present the only unary operator only takes u64 types
-                if self.lookup(*operand)? != self.ty_sess.make_u64() {
+                if self.lookup(*operand)? != self.ty_sess.make_i32() {
                     Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             span,
-                            "argument to unary operator must have type u64",
+                            "argument to unary operator must have type i32",
                         ),
                     )))
                 } else {
-                    Ok(self.ty_sess.make_u64())
+                    Ok(self.ty_sess.make_i32())
                 }
             }
             ir::ExprKind::Binop { left, right, .. } => {
                 // NOTE same hack works here because at present all binary operators only take u64 types
-                if self.lookup(*left)? != self.ty_sess.make_u64() {
+                if self.lookup(*left)? != self.ty_sess.make_i32() {
                     Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             left.span(),
-                            "arguments to binary operator must have type u64",
+                            "arguments to binary operator must have type i32",
                         ),
                     )))
-                } else if self.lookup(*right)? != self.ty_sess.make_u64() {
+                } else if self.lookup(*right)? != self.ty_sess.make_i32() {
                     Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(
                             self.file_id,
                             right.span(),
-                            "arguments to binary operator must have type u64",
+                            "arguments to binary operator must have type i32",
                         ),
                     )))
                 } else {
@@ -332,6 +335,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                 Ok(*ty)
             }
             ir::ExprKind::Socket { .. } => Ok(self.ty_sess.make_i32()),
+            ir::ExprKind::Bind { .. } => Ok(self.ty_sess.make_i32()),
         }
     }
 
@@ -350,6 +354,9 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::PatternKind::I16Literal(_) => Ok(self.ty_sess.make_i16()),
             ir::PatternKind::I32Literal(_) => Ok(self.ty_sess.make_i32()),
             ir::PatternKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
+            ir::PatternKind::ArrayLiteral { element_ty, elements } => {
+                Ok(self.ty_sess.make_array(*element_ty, elements.len() as i32))
+            }
             ir::PatternKind::StringLiteral(_) => Ok(self.ty_sess.make_string()),
             ir::PatternKind::Ident(binding) => {
                 self.bind(*binding, source_ty)?;

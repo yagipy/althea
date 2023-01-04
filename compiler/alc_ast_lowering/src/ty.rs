@@ -92,12 +92,21 @@ pub enum TyKind {
     I32,
     U64,
     String,
+    Array(Array),
     Enum(Enum),
     Struct(Struct),
     Fn(Prototype),
 }
 
 impl TyKind {
+    #[inline]
+    pub fn as_array(&self) -> Option<&Array> {
+        match self {
+            TyKind::Array(ref desc) => Some(desc),
+            _ => None,
+        }
+    }
+
     #[inline]
     pub fn as_enum(&self) -> Option<&Enum> {
         match self {
@@ -205,6 +214,11 @@ impl TyKind {
     }
 
     #[inline]
+    pub fn is_array(&self) -> bool {
+        matches!(self, TyKind::Array(_))
+    }
+
+    #[inline]
     pub fn is_enum(&self) -> bool {
         matches!(self, TyKind::Enum(_))
     }
@@ -213,6 +227,12 @@ impl TyKind {
     pub fn is_struct(&self) -> bool {
         matches!(self, TyKind::Struct(_))
     }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Array {
+    pub element_ty: Ty,
+    pub size: i32,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -275,6 +295,10 @@ impl TySess {
 
     pub fn make_string(&self) -> Ty {
         self.make_unique(TyKind::String)
+    }
+
+    pub fn make_array(&self, element_ty: Ty, size: i32) -> Ty {
+        self.make_unique(TyKind::Array(Array { element_ty, size }))
     }
 
     pub fn make_fn(&self, return_ty: Ty, params: IdxVec<ParamIdx, Ty>) -> Ty {

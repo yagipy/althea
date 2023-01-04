@@ -255,6 +255,13 @@ impl<'a> Parser<'a> {
             Ok(self.eat(Kind::U64Ty)?.span().span(ast::Ty::U64))
         } else if self.next_is(Kind::StringTy) {
             Ok(self.eat(Kind::StringTy)?.span().span(ast::Ty::String))
+        } else if self.next_is(Kind::LSquare) {
+            let span = self.eat(Kind::LSquare)?.span();
+            let ty = self.next_ty()?;
+            self.eat(Kind::Semi)?;
+            let size = self.next_number_literal()?;
+            let span = span.merge(self.eat(Kind::RSquare)?.span());
+            Ok(span.span(ast::Ty::Array(Box::from(ty.into_raw()), size.into_raw() as i32)))
         } else {
             let ident = self.next_ident()?;
             Ok(ident.span().span(ast::Ty::TyName(ident.into_raw())))
@@ -339,6 +346,9 @@ impl<'a> Parser<'a> {
             let expr = self.next_expr()?;
             self.eat(Kind::RParen)?;
             Ok(expr)
+        } else if self.next_is(Kind::LSquare) {
+            let elements = self.next_comma_group(Kind::LSquare, Kind::RSquare, |this| this.next_expr())?;
+            Ok(elements.span().span(ast::Expr::ArrayLiteral(elements.into_raw())))
         } else if self.next_is(Kind::Socket) {
             let span = self.eat(Kind::Socket)?.span();
             self.eat(Kind::LParen)?;
@@ -352,6 +362,20 @@ impl<'a> Parser<'a> {
                 domain: domain.boxed(),
                 ty: ty.boxed(),
                 protocol: protocol.boxed(),
+            }))
+        } else if self.next_is(Kind::Bind) {
+            let span = self.eat(Kind::Bind)?.span();
+            self.eat(Kind::LParen)?;
+            let socket_file_descriptor = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let address = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let address_length = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            Ok(span.span(ast::Expr::Bind {
+                socket_file_descriptor: socket_file_descriptor.boxed(),
+                address: address.boxed(),
+                address_length: address_length.boxed(),
             }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)
