@@ -207,10 +207,10 @@ impl<'a> Parser<'a> {
         Ok(token.span().span(token.value().unwrap().to_string()))
     }
 
-    fn unpack_i32_literal(&self, data: &str, span: Span) -> Result<i32> {
-        data.parse::<i32>().map_err(|err| {
+    fn unpack_number_literal(&self, data: &str, span: Span) -> Result<i64> {
+        data.parse::<i64>().map_err(|err| {
             Box::from(Diagnostic::new_bug(
-                "failed to parse i32 literal",
+                "failed to parse u64 literal",
                 Label::new(self.file_id, span, err.to_string()),
             ))
         })
@@ -225,11 +225,11 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn next_i32_literal(&mut self) -> Result<Spanned<i32>> {
-        let token = self.eat(Kind::I32Literal)?;
+    fn next_number_literal(&mut self) -> Result<Spanned<i64>> {
+        let token = self.eat(Kind::NumberLiteral)?;
         Ok(token
             .span()
-            .span(self.unpack_i32_literal(token.value().unwrap(), token.span())?))
+            .span(self.unpack_number_literal(token.value().unwrap(), token.span())?))
     }
 
     fn next_u64_literal(&mut self) -> Result<Spanned<u64>> {
@@ -245,10 +245,14 @@ impl<'a> Parser<'a> {
     }
 
     fn next_ty(&mut self) -> Result<Spanned<ast::Ty>> {
-        if self.next_is(Kind::U64Ty) {
-            Ok(self.eat(Kind::U64Ty)?.span().span(ast::Ty::U64))
+        if self.next_is(Kind::I8Ty) {
+            Ok(self.eat(Kind::I8Ty)?.span().span(ast::Ty::I8))
+        } else if self.next_is(Kind::I16Ty) {
+            Ok(self.eat(Kind::I16Ty)?.span().span(ast::Ty::I16))
         } else if self.next_is(Kind::I32Ty) {
             Ok(self.eat(Kind::I32Ty)?.span().span(ast::Ty::I32))
+        } else if self.next_is(Kind::U64Ty) {
+            Ok(self.eat(Kind::U64Ty)?.span().span(ast::Ty::U64))
         } else if self.next_is(Kind::StringTy) {
             Ok(self.eat(Kind::StringTy)?.span().span(ast::Ty::String))
         } else {
@@ -321,9 +325,9 @@ impl<'a> Parser<'a> {
                 )
             })?;
             Ok(span.span(ast::Expr::StringLiteral(expanded)))
-        } else if self.next_is(Kind::I32Literal) {
-            let literal = self.next_i32_literal()?;
-            Ok(literal.span().span(ast::Expr::I32Literal(literal.into_raw())))
+        } else if self.next_is(Kind::NumberLiteral) {
+            let literal = self.next_number_literal()?;
+            Ok(literal.span().span(ast::Expr::NumberLiteral(literal.into_raw())))
         } else if self.next_is(Kind::U64Literal) {
             let literal = self.next_u64_literal()?;
             Ok(literal.span().span(ast::Expr::U64Literal(literal.into_raw())))
@@ -407,12 +411,14 @@ impl<'a> Parser<'a> {
     }
 
     fn next_pattern(&mut self) -> Result<Spanned<ast::Pattern>> {
-        if self.next_is(Kind::U64Literal) {
+        if self.next_is(Kind::NumberLiteral) {
+            let literal = self.next_number_literal()?;
+            Ok(literal
+                .span()
+                .span(ast::Pattern::NumberLiteral(literal.into_raw())))
+        } else if self.next_is(Kind::U64Literal) {
             let literal = self.next_u64_literal()?;
             Ok(literal.span().span(ast::Pattern::U64Literal(literal.into_raw())))
-        } else if self.next_is(Kind::I32Literal) {
-            let literal = self.next_i32_literal()?;
-            Ok(literal.span().span(ast::Pattern::I32Literal(literal.into_raw())))
         } else if self.next_is(Kind::StringLiteral) {
             let literal = self.next_string_literal()?;
             Ok(literal

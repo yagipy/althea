@@ -115,6 +115,12 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
 
     fn compile_expr(&mut self, expr: &ir::Expr) -> Result<BasicValueEnum<'ctx>> {
         match &expr.kind {
+            ir::ExprKind::I8Literal(literal) => {
+                Ok(self.context.i8_type().const_int(*literal as u64, false).into())
+            }
+            ir::ExprKind::I16Literal(literal) => {
+                Ok(self.context.i16_type().const_int(*literal as u64, false).into())
+            }
             ir::ExprKind::I32Literal(literal) => {
                 Ok(self.context.i32_type().const_int(*literal as u64, false).into())
             }
@@ -254,6 +260,8 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
         pattern: &ir::PatternKind,
     ) -> MatchCase<'ctx> {
         match pattern {
+            ir::PatternKind::I8Literal(literal) => MatchCase::Literal(self.compile_i8_literal(*literal)),
+            ir::PatternKind::I16Literal(literal) => MatchCase::Literal(self.compile_i16_literal(*literal)),
             ir::PatternKind::I32Literal(literal) => MatchCase::Literal(self.compile_i32_literal(*literal)),
             ir::PatternKind::U64Literal(literal) => MatchCase::Literal(self.compile_i64_literal(*literal)),
             ir::PatternKind::StringLiteral(literal) => {

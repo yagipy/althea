@@ -169,9 +169,27 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
         }
     }
 
-    fn lower_expr_kind(&mut self, expr: &'ast ast::Expr, span: Span) -> Result<ir::ExprKind> {
+    fn lower_expr_kind(
+        &mut self,
+        ty: Option<ty::Ty>,
+        expr: &'ast ast::Expr,
+        span: Span,
+    ) -> Result<ir::ExprKind> {
         Ok(match expr {
-            ast::Expr::I32Literal(literal) => ir::ExprKind::I32Literal(*literal),
+            ast::Expr::NumberLiteral(literal) => {
+                if let Some(ty) = ty {
+                    if self.sess.tys.ty_sess().make_i8() == ty {
+                        return Ok(ir::ExprKind::I8Literal(*literal as i8));
+                    } else if self.sess.tys.ty_sess().make_i16() == ty {
+                        return Ok(ir::ExprKind::I16Literal(*literal as i16));
+                    } else if self.sess.tys.ty_sess().make_i32() == ty {
+                        return Ok(ir::ExprKind::I32Literal(*literal as i32));
+                    } else if self.sess.tys.ty_sess().make_u64() == ty {
+                        return Ok(ir::ExprKind::U64Literal(*literal as u64));
+                    }
+                }
+                ir::ExprKind::I32Literal(*literal as i32)
+            }
             ast::Expr::U64Literal(literal) => ir::ExprKind::U64Literal(*literal),
             ast::Expr::StringLiteral(literal) => ir::ExprKind::StringLiteral(literal.clone()),
             ast::Expr::Var(stream) => {
@@ -224,7 +242,9 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 let struct_ty = self.sess.tys.lookup(struct_name, struct_name.span())?;
                 let mut field_bindings = HashMap::new();
                 for (field, body) in fields.iter() {
-                    let lowered = self.lower_expr(None, body, body.span())?;
+                    let field_idx = self.sess.tys.lookup_field(struct_ty, field, field.span())?;
+                    let field_ty = self.sess.tys.ty_sess().ty_kind(struct_ty).field_ty(field_idx);
+                    let lowered = self.lower_expr(field_ty, body, body.span())?;
                     if let Some(idx) = field_bindings.insert(
                         self.sess.tys.lookup_field(struct_ty, field, field.span())?,
                         lowered,
@@ -276,7 +296,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
     }
 
     fn lower_expr(&mut self, ty: Option<ty::Ty>, expr: &'ast ast::Expr, span: Span) -> Result<ir::LocalIdx> {
-        let kind = self.lower_expr_kind(expr, span)?;
+        let kind = self.lower_expr_kind(ty, expr, span)?;
         Ok(match kind {
             ir::ExprKind::Var(local_idx, field_idxes) => {
                 if field_idxes.is_empty() {
@@ -336,7 +356,10 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
     ) -> Result<ir::Arm> {
         let mut ctx = self.mk_child();
         let pattern = match pattern {
-            ast::Pattern::I32Literal(literal) => ir::PatternKind::I32Literal(*literal),
+            ast::Pattern::NumberLiteral(literal) => {
+                // TODO: 型のハンドリング
+                ir::PatternKind::I32Literal(*literal as i32)
+            }
             ast::Pattern::U64Literal(literal) => ir::PatternKind::U64Literal(*literal),
             ast::Pattern::StringLiteral(literal) => ir::PatternKind::StringLiteral(literal.clone()),
             ast::Pattern::Ident(ident) => {

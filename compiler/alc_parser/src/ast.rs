@@ -4,6 +4,8 @@ pub type Ident = String;
 
 #[derive(Debug)]
 pub enum Ty {
+    I8,
+    I16,
     I32,
     U64,
     String,
@@ -42,7 +44,7 @@ pub enum BinopKind {
 
 #[derive(Debug)]
 pub enum Expr {
-    I32Literal(i32),
+    NumberLiteral(i64),
     U64Literal(u64),
     StringLiteral(String),
     Var(Vec<Spanned<Ident>>),
@@ -77,7 +79,7 @@ pub enum Expr {
 
 #[derive(Debug)]
 pub enum Pattern {
-    I32Literal(i32),
+    NumberLiteral(i64),
     U64Literal(u64),
     StringLiteral(String),
     Ident(Ident),
