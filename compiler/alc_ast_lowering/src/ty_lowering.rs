@@ -173,6 +173,9 @@ impl<'ast> TyLowering<'ast> {
             ast::Ty::I32 => Ok(self.i32_ty),
             ast::Ty::U64 => Ok(self.u64_ty),
             ast::Ty::String => Ok(self.string_ty),
+            ast::Ty::Array(element_ty, size) => Ok(self
+                .ty_sess
+                .make_array(self.lookup_ty(element_ty, span)?, *size as i32)),
             ast::Ty::TyName(ident) => self.lookup(ident, span),
         }
     }

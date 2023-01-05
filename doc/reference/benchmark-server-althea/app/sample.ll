@@ -7,9 +7,9 @@ target triple = "x86_64-pc-linux-gnu"
 %struct._IO_marker = type opaque
 %struct._IO_codecvt = type opaque
 %struct._IO_wide_data = type opaque
-%struct.sockaddr_in = type { i16, i16, %struct.in_addr, [8 x i8] }
-%struct.in_addr = type { i32 }
-%struct.sockaddr = type { i16, [14 x i8] }
+; %struct.sockaddr_in = type { i16, i16, { i32 }, [8 x i8] }
+; %struct.in_addr = type { i32 }
+; %struct.sockaddr = type { i16, [14 x i8] }
 
 @stderr = external dso_local global %struct._IO_FILE*, align 8
 @.str = private unnamed_addr constant [13 x i8] c"socket error\00", align 1
@@ -24,8 +24,8 @@ define dso_local i32 @main() #0 {
   %2 = alloca i32, align 4
   %3 = alloca i32, align 4
   %4 = alloca i32, align 4
-  %5 = alloca %struct.sockaddr_in, align 4
-  %6 = alloca %struct.sockaddr_in, align 4
+  %5 = alloca { i16, i16, { i32 }, [8 x i8] }, align 4
+  %6 = alloca { i16, i16, { i32 }, [8 x i8] }, align 4
   %7 = alloca i32, align 4
   %8 = alloca [2048 x i8], align 16
   %9 = alloca [2048 x i8], align 16
@@ -44,20 +44,20 @@ define dso_local i32 @main() #0 {
   br label %69
 
 16:                                               ; preds = %0
-  %17 = getelementptr inbounds %struct.sockaddr_in, %struct.sockaddr_in* %5, i32 0, i32 0
+  %17 = getelementptr inbounds { i16, i16, { i32 }, [8 x i8] }, { i16, i16, { i32 }, [8 x i8] }* %5, i32 0, i32 0
   store i16 2, i16* %17, align 4
   %18 = call zeroext i16 @htons(i16 zeroext 80) #7
-  %19 = getelementptr inbounds %struct.sockaddr_in, %struct.sockaddr_in* %5, i32 0, i32 1
+  %19 = getelementptr inbounds { i16, i16, { i32 }, [8 x i8] }, { i16, i16, { i32 }, [8 x i8] }* %5, i32 0, i32 1
   store i16 %18, i16* %19, align 2
-  %20 = getelementptr inbounds %struct.sockaddr_in, %struct.sockaddr_in* %5, i32 0, i32 2
-  %21 = getelementptr inbounds %struct.in_addr, %struct.in_addr* %20, i32 0, i32 0
+  %20 = getelementptr inbounds { i16, i16, { i32 }, [8 x i8] }, { i16, i16, { i32 }, [8 x i8] }* %5, i32 0, i32 2
+  %21 = getelementptr inbounds { i32 }, { i32 }* %20, i32 0, i32 0
   store i32 0, i32* %21, align 4
   %22 = load i32, i32* %2, align 4
   %23 = bitcast i32* %7 to i8*
   %24 = call i32 @setsockopt(i32 %22, i32 1, i32 2, i8* %23, i32 4) #6
   %25 = load i32, i32* %2, align 4
-  %26 = bitcast %struct.sockaddr_in* %5 to %struct.sockaddr*
-  %27 = call i32 @bind(i32 %25, %struct.sockaddr* %26, i32 16) #6
+  %26 = bitcast { i16, i16, { i32 }, [8 x i8] }* %5 to { i16, [14 x i8] }*
+  %27 = call i32 @bind(i32 %25, { i16, [14 x i8] }* %26, i32 16) #6
   %28 = icmp ne i32 %27, 0
   br i1 %28, label %29, label %32
 
@@ -89,8 +89,8 @@ define dso_local i32 @main() #0 {
 43:                                               ; preds = %39, %52
   store i32 16, i32* %4, align 4
   %44 = load i32, i32* %2, align 4
-  %45 = bitcast %struct.sockaddr_in* %6 to %struct.sockaddr*
-  %46 = call i32 @accept(i32 %44, %struct.sockaddr* %45, i32* %4)
+  %45 = bitcast { i16, i16, { i32 }, [8 x i8] }* %6 to { i16, [14 x i8] }*
+  %46 = call i32 @accept(i32 %44, { i16, [14 x i8] }* %45, i32* %4)
   store i32 %46, i32* %3, align 4
   %47 = load i32, i32* %3, align 4
   %48 = icmp slt i32 %47, 0
@@ -141,7 +141,7 @@ declare dso_local zeroext i16 @htons(i16 zeroext) #3
 declare dso_local i32 @setsockopt(i32, i32, i32, i8*, i32) #1
 
 ; Function Attrs: nounwind
-declare dso_local i32 @bind(i32, %struct.sockaddr*, i32) #1
+declare dso_local i32 @bind(i32, { i16, [14 x i8] }*, i32) #1
 
 ; Function Attrs: nounwind
 declare dso_local i32 @listen(i32, i32) #1
@@ -152,7 +152,7 @@ declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg) 
 ; Function Attrs: nounwind
 declare dso_local i32 @snprintf(i8*, i64, i8*, ...) #1
 
-declare dso_local i32 @accept(i32, %struct.sockaddr*, i32*) #2
+declare dso_local i32 @accept(i32, { i16, [14 x i8] }*, i32*) #2
 
 declare dso_local i64 @recv(i32, i8*, i64, i32) #2
 

@@ -1,8 +1,9 @@
-use crate::{CodegenLLVM, PRINTF, SOCKET};
+use crate::{CodegenLLVM, BIND, PRINTF, SOCKET};
 use alc_ast_lowering::{ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
-    values::{BasicValue, BasicValueEnum, FunctionValue, IntValue, VectorValue},
+    values::{ArrayValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, VectorValue},
+    AddressSpace,
     IntPredicate,
 };
 use std::{collections::HashMap, ops::Deref};
@@ -19,6 +20,7 @@ enum MatchCase<'ctx> {
     Wild,
     Record,
     StringLiteral(VectorValue<'ctx>),
+    ArrayLiteral(ArrayValue<'ctx>),
     Literal(IntValue<'ctx>),
     Variant(ty::Ty, IntValue<'ctx>),
 }
@@ -115,22 +117,14 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
 
     fn compile_expr(&mut self, expr: &ir::Expr) -> Result<BasicValueEnum<'ctx>> {
         match &expr.kind {
-            ir::ExprKind::I8Literal(literal) => {
-                Ok(self.context.i8_type().const_int(*literal as u64, false).into())
+            ir::ExprKind::I8Literal(literal) => Ok(self.compile_i8_literal(*literal).into()),
+            ir::ExprKind::I16Literal(literal) => Ok(self.compile_i16_literal(*literal).into()),
+            ir::ExprKind::I32Literal(literal) => Ok(self.compile_i32_literal(*literal).into()),
+            ir::ExprKind::U64Literal(literal) => Ok(self.compile_i64_literal(*literal).into()),
+            ir::ExprKind::ArrayLiteral { element_ty, elements } => {
+                Ok(self.compile_array_literal(*element_ty, elements.to_vec()).into())
             }
-            ir::ExprKind::I16Literal(literal) => {
-                Ok(self.context.i16_type().const_int(*literal as u64, false).into())
-            }
-            ir::ExprKind::I32Literal(literal) => {
-                Ok(self.context.i32_type().const_int(*literal as u64, false).into())
-            }
-            ir::ExprKind::U64Literal(literal) => {
-                Ok(self.context.i64_type().const_int(*literal, false).into())
-            }
-            ir::ExprKind::StringLiteral(literal) => Ok(self
-                .context
-                .const_string(literal.as_bytes(), false)
-                .as_basic_value_enum()),
+            ir::ExprKind::StringLiteral(literal) => Ok(self.compile_string_literal(literal).into()),
             ir::ExprKind::Var(local_idx, _) => self.lookup(*local_idx),
             ir::ExprKind::Unop { kind, operand } => self.compile_unop(expr.local_idx, *kind, *operand),
             ir::ExprKind::Binop { kind, left, right } => {
@@ -192,6 +186,48 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                         ))
                     })?;
                 Ok(socket)
+            }
+            ir::ExprKind::Bind {
+                socket_file_descriptor,
+                address,
+                address_length,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let address = self.lookup(*address)?.into_pointer_value();
+                let address_length = self.lookup(*address_length)?.into_int_value();
+                let casted_address = self.builder.build_bitcast(
+                    address,
+                    self.context
+                        .struct_type(
+                            &[
+                                self.context.i16_type().into(),
+                                self.context.i8_type().array_type(14).into(),
+                            ],
+                            false,
+                        )
+                        .ptr_type(AddressSpace::Generic),
+                    "cast_tmp",
+                );
+                let bind = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(BIND).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            casted_address.into(),
+                            address_length.into(),
+                        ],
+                        "bind",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(bind)
             }
         }
     }
@@ -264,6 +300,9 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
             ir::PatternKind::I16Literal(literal) => MatchCase::Literal(self.compile_i16_literal(*literal)),
             ir::PatternKind::I32Literal(literal) => MatchCase::Literal(self.compile_i32_literal(*literal)),
             ir::PatternKind::U64Literal(literal) => MatchCase::Literal(self.compile_i64_literal(*literal)),
+            ir::PatternKind::ArrayLiteral { element_ty, elements } => {
+                MatchCase::ArrayLiteral(self.compile_array_literal(*element_ty, elements.to_owned()))
+            }
             ir::PatternKind::StringLiteral(literal) => {
                 MatchCase::StringLiteral(self.compile_string_literal(literal))
             }
@@ -325,6 +364,11 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                             self.compile_block(&arm.target)?;
                         }
                         MatchCase::StringLiteral(_) => {
+                            // TODO: support
+                            // cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
+                        MatchCase::ArrayLiteral(_) => {
                             // TODO: support
                             // cases.push((case, block));
                             self.compile_block(&arm.target)?;
