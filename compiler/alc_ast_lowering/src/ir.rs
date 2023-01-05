@@ -168,6 +168,11 @@ pub enum ExprKind {
         socket_file_descriptor: LocalIdx,
         backlog: LocalIdx,
     },
+    Accept {
+        socket_file_descriptor: LocalIdx,
+        address: LocalIdx,
+        address_length: LocalIdx,
+    },
 }
 
 #[derive(Clone, Debug)]

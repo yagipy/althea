@@ -163,15 +163,17 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 &[
                     self.context.i32_type().as_basic_type_enum().into(),
                     self.context
-                        .i8_type()
+                        .struct_type(
+                            &[
+                                self.context.i16_type().as_basic_type_enum(),
+                                self.context.i8_type().array_type(14).as_basic_type_enum(),
+                            ],
+                            false,
+                        )
                         .ptr_type(AddressSpace::Generic)
                         .as_basic_type_enum()
                         .into(),
-                    self.context
-                        .i32_type()
-                        .ptr_type(AddressSpace::Generic)
-                        .as_basic_type_enum()
-                        .into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
                 ],
                 false,
             ),

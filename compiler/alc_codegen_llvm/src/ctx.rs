@@ -1,4 +1,4 @@
-use crate::{CodegenLLVM, BIND, LISTEN, PRINTF, SOCKET};
+use crate::{CodegenLLVM, ACCEPT, BIND, LISTEN, PRINTF, SOCKET};
 use alc_ast_lowering::{ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
@@ -251,6 +251,48 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                         ))
                     })?;
                 Ok(listen)
+            }
+            ir::ExprKind::Accept {
+                socket_file_descriptor,
+                address,
+                address_length,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let address = self.lookup(*address)?.into_pointer_value();
+                let address_length = self.lookup(*address_length)?.into_int_value();
+                let casted_address = self.builder.build_bitcast(
+                    address,
+                    self.context
+                        .struct_type(
+                            &[
+                                self.context.i16_type().into(),
+                                self.context.i8_type().array_type(14).into(),
+                            ],
+                            false,
+                        )
+                        .ptr_type(AddressSpace::Generic),
+                    "cast_tmp",
+                );
+                let accept = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(ACCEPT).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            casted_address.into(),
+                            address_length.into(),
+                        ],
+                        "accept",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(accept)
             }
         }
     }
