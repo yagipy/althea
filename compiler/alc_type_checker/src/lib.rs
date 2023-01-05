@@ -182,7 +182,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::ExprKind::I8Literal(_) => Ok(self.ty_sess.make_i8()),
             ir::ExprKind::I16Literal(_) => Ok(self.ty_sess.make_i16()),
             ir::ExprKind::I32Literal(_) => Ok(self.ty_sess.make_i32()),
-            ir::ExprKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
+            ir::ExprKind::I64Literal(_) => Ok(self.ty_sess.make_i64()),
             ir::ExprKind::ArrayLiteral { element_ty, elements } => {
                 Ok(self.ty_sess.make_array(*element_ty, elements.len() as i32))
             }
@@ -224,7 +224,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                         ),
                     )))
                 } else {
-                    Ok(self.ty_sess.make_u64())
+                    Ok(self.ty_sess.make_i64())
                 }
             }
             ir::ExprKind::Call { target, args } => {
@@ -338,6 +338,8 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::ExprKind::Bind { .. } => Ok(self.ty_sess.make_i32()),
             ir::ExprKind::Listen { .. } => Ok(self.ty_sess.make_i32()),
             ir::ExprKind::Accept { .. } => Ok(self.ty_sess.make_i32()),
+            ir::ExprKind::Recv { .. } => Ok(self.ty_sess.make_i64()),
+            ir::ExprKind::Send { .. } => Ok(self.ty_sess.make_i64()),
         }
     }
 
@@ -355,7 +357,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::PatternKind::I8Literal(_) => Ok(self.ty_sess.make_i8()),
             ir::PatternKind::I16Literal(_) => Ok(self.ty_sess.make_i16()),
             ir::PatternKind::I32Literal(_) => Ok(self.ty_sess.make_i32()),
-            ir::PatternKind::U64Literal(_) => Ok(self.ty_sess.make_u64()),
+            ir::PatternKind::I64Literal(_) => Ok(self.ty_sess.make_i64()),
             ir::PatternKind::ArrayLiteral { element_ty, elements } => {
                 Ok(self.ty_sess.make_array(*element_ty, elements.len() as i32))
             }
@@ -442,7 +444,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
             | ir::InstructionKind::Unmark(local_idx, ty)
             | ir::InstructionKind::Free(local_idx, ty) => {
                 // NOTE this would want extending to cover all primitive types given that any further types were added
-                if self.lookup(*local_idx)? == self.ty_sess.make_u64() {
+                if self.lookup(*local_idx)? == self.ty_sess.make_i64() {
                     return Err(Box::from(Diagnostic::new_error(
                         "type mismatch",
                         Label::new(

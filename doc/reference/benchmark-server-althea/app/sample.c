@@ -15,7 +15,7 @@ int main() {
 
     sock0 = socket(AF_INET, SOCK_STREAM, 0);
     if (sock0 < 0) {
-        fprintf(stderr, "socket error");
+        puts("socket error");
         return -1;
     }
 
@@ -25,14 +25,16 @@ int main() {
     setsockopt(sock0, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes, sizeof(yes));
 
     if (bind(sock0, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-        fprintf(stderr, "bind error");
+        puts("bind error");
         return -1;
     }
+    puts("bind");
 
     if (listen(sock0, 5) != 0) {
-        fprintf(stderr, "listen error");
+        puts("listen error");
         return -1;
     }
+    puts("listen");
 
     memset(buf, 0, sizeof(buf));
     snprintf(buf, sizeof(buf),
@@ -41,22 +43,26 @@ int main() {
               "\r\n"
               "Hello\r\n");
 
-    while (1) {
+//    while (1) {
         len = sizeof(client);
         sock = accept(sock0, (struct sockaddr *)&client, &len);
         if (sock < 0) {
-            fprintf(stderr, "accept error");
-            break;
+            puts("accept error");
+//            break;
+            return -1;
         }
+        puts("accept");
 
         memset(req_buf, 0, sizeof(req_buf));
         recv(sock, req_buf, sizeof(req_buf), 0);
+        puts("recv");
         // TODO: クライアントからのリクエストをパースする
         // printf("%s", req_buf);
-        send(sock, buf, (int)strlen(buf), 0);
-
+        send(sock, buf, strlen(buf), 0);
+        puts("send");
         close(sock);
-    }
+        puts("close");
+//    }
     close(sock0);
     return 0;
 }

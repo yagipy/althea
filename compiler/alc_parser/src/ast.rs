@@ -7,7 +7,7 @@ pub enum Ty {
     I8,
     I16,
     I32,
-    U64,
+    I64,
     String,
     Array(Box<Ty>, i32),
     TyName(Ident),
@@ -47,7 +47,6 @@ pub enum BinopKind {
 pub enum Expr {
     NumberLiteral(i64),
     ArrayLiteral(Vec<Spanned<Expr>>),
-    U64Literal(u64),
     StringLiteral(String),
     Var(Vec<Spanned<Ident>>),
     Unop {
@@ -91,13 +90,25 @@ pub enum Expr {
         address: Spanned<Box<Expr>>,
         address_length: Spanned<Box<Expr>>,
     },
+    Recv {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        buffer: Spanned<Box<Expr>>,
+        buffer_length: Spanned<Box<Expr>>,
+        flags: Spanned<Box<Expr>>,
+    },
+    Send {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        buffer: Spanned<Box<Expr>>,
+        buffer_length: Spanned<Box<Expr>>,
+        content: Spanned<Box<Expr>>,
+        flags: Spanned<Box<Expr>>,
+    },
 }
 
 #[derive(Debug)]
 pub enum Pattern {
     NumberLiteral(i64),
     ArrayLiteral(Vec<Spanned<Expr>>),
-    U64Literal(u64),
     StringLiteral(String),
     Ident(Ident),
     Variant {

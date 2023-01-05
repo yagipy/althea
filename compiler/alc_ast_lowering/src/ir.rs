@@ -125,7 +125,7 @@ pub enum ExprKind {
     I8Literal(i8),
     I16Literal(i16),
     I32Literal(i32),
-    U64Literal(u64),
+    I64Literal(i64),
     ArrayLiteral {
         element_ty: Ty,
         elements: Vec<ExprKind>,
@@ -173,6 +173,20 @@ pub enum ExprKind {
         address: LocalIdx,
         address_length: LocalIdx,
     },
+    Recv {
+        socket_file_descriptor: LocalIdx,
+        buffer: LocalIdx,
+        buffer_length: LocalIdx,
+        flags: LocalIdx,
+    },
+    Send {
+        socket_file_descriptor: LocalIdx,
+        buffer: LocalIdx,
+        buffer_length: LocalIdx,
+        // http_header: LocalIdx,
+        content: LocalIdx,
+        flags: LocalIdx,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -187,7 +201,7 @@ pub enum PatternKind {
     I8Literal(i8),
     I16Literal(i16),
     I32Literal(i32),
-    U64Literal(u64),
+    I64Literal(i64),
     ArrayLiteral {
         element_ty: Ty,
         elements: Vec<ExprKind>,

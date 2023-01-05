@@ -1,4 +1,4 @@
-use crate::{CodegenLLVM, ACCEPT, BIND, LISTEN, PRINTF, SOCKET};
+use crate::{CodegenLLVM, ACCEPT, BIND, LISTEN, PRINTF, SOCKET, RECV, SEND, SNPRINTF, STRLEN};
 use alc_ast_lowering::{ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
@@ -120,7 +120,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
             ir::ExprKind::I8Literal(literal) => Ok(self.compile_i8_literal(*literal).into()),
             ir::ExprKind::I16Literal(literal) => Ok(self.compile_i16_literal(*literal).into()),
             ir::ExprKind::I32Literal(literal) => Ok(self.compile_i32_literal(*literal).into()),
-            ir::ExprKind::U64Literal(literal) => Ok(self.compile_i64_literal(*literal).into()),
+            ir::ExprKind::I64Literal(literal) => Ok(self.compile_i64_literal(*literal).into()),
             ir::ExprKind::ArrayLiteral { element_ty, elements } => {
                 Ok(self.compile_array_literal(*element_ty, elements.to_vec()).into())
             }
@@ -294,6 +294,104 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                     })?;
                 Ok(accept)
             }
+            ir::ExprKind::Recv {
+                socket_file_descriptor,
+                buffer,
+                buffer_length,
+                flags,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let buffer = self.lookup(*buffer)?.into_array_value();
+                let buffer_length = self.lookup(*buffer_length)?.into_int_value();
+                let flags = self.lookup(*flags)?.into_int_value();
+                let allocated_buffer = self.builder.build_alloca(buffer.get_type(), "allocated_buffer");
+                let buffer_ptr = unsafe { self.gep(allocated_buffer, 0, "buffer_ptr") };
+                let recv = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(RECV).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            buffer_ptr.into(),
+                            buffer_length.into(),
+                            flags.into(),
+                        ],
+                        "recv",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(recv)
+            }
+            ir::ExprKind::Send {
+                socket_file_descriptor,
+                buffer,
+                buffer_length,
+                // http_header,
+                content,
+                flags,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let buffer = self.lookup(*buffer)?.into_array_value();
+                // let http_header = self.lookup(*http_header)?.into_pointer_value();
+                let content = self.lookup(*content)?;
+                let const_ref = self.builder.build_alloca(content.get_type(), "printf_tmp");
+                self.builder.build_store(const_ref, content);
+                let content_ptr = unsafe { self.sess.gep(const_ref, 0, "printf_tmp") };
+                let buffer_length = self.lookup(*buffer_length)?.into_int_value();
+                let flags = self.lookup(*flags)?.into_int_value();
+                let allocated_buffer = self.builder.build_alloca(buffer.get_type(), "allocated_buffer");
+                let buffer_ptr = unsafe { self.gep(allocated_buffer, 0, "buffer_ptr") };
+                // TODO: snprintfを使ってbufferにcontentを書き込む
+                self.builder.build_call(
+                    self.module.get_function(SNPRINTF).unwrap(),
+                    &[
+                        buffer_ptr.into(),
+                        buffer_length.into(),
+                        // http_header.into(),
+                        content_ptr.into(),
+                    ],
+                    "snprintf",
+                );
+                let buffer_ptr_with_content = unsafe { self.gep(allocated_buffer, 0, "buffer_ptr") };
+                // TODO: strlenを使ってbufferの長さを取得する
+                let content_length = self.builder.build_call(
+                    self.module.get_function(STRLEN).unwrap(),
+                    &[buffer_ptr_with_content.into()],
+                    "strlen",
+                ).try_as_basic_value().left().ok_or_else(|| {
+                    Box::from(Diagnostic::new_bug(
+                        "attempted to return non-basic value from function call",
+                        Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                    ))
+                })?;
+                let send = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(SEND).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            buffer_ptr_with_content.into(),
+                            content_length.into(),
+                            flags.into(),
+                        ],
+                        "send",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(send)
+            }
         }
     }
 
@@ -304,13 +402,11 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 self.bind(*binding, compiled_expr);
             }
             ir::InstructionKind::Println { idx } => {
+                // TODO: リファクタ
                 let value = self.lookup(*idx).unwrap();
                 let const_ref = self.builder.build_alloca(value.get_type(), "printf_tmp");
                 self.builder.build_store(const_ref, value);
-                let ptr;
-                unsafe {
-                    ptr = self.sess.gep(const_ref, 0, "printf_tmp");
-                }
+                let ptr = unsafe { self.sess.gep(const_ref, 0, "printf_tmp") };
                 self.builder.build_call(
                     self.module.get_function(PRINTF).unwrap(),
                     &[ptr.as_basic_value_enum().into()],
@@ -364,7 +460,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
             ir::PatternKind::I8Literal(literal) => MatchCase::Literal(self.compile_i8_literal(*literal)),
             ir::PatternKind::I16Literal(literal) => MatchCase::Literal(self.compile_i16_literal(*literal)),
             ir::PatternKind::I32Literal(literal) => MatchCase::Literal(self.compile_i32_literal(*literal)),
-            ir::PatternKind::U64Literal(literal) => MatchCase::Literal(self.compile_i64_literal(*literal)),
+            ir::PatternKind::I64Literal(literal) => MatchCase::Literal(self.compile_i64_literal(*literal)),
             ir::PatternKind::ArrayLiteral { element_ty, elements } => {
                 MatchCase::ArrayLiteral(self.compile_array_literal(*element_ty, elements.to_owned()))
             }

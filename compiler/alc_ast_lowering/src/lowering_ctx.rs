@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use crate::{
     idx::Idxr,
     idx_vec::{IdxVec, IntoIdxVec},
@@ -8,6 +9,7 @@ use crate::{
 use alc_diagnostic::{Diagnostic, Label, Result, Span};
 use alc_parser::ast;
 use std::collections::HashMap;
+use alc_parser::ast::Expr;
 
 #[derive(Debug)]
 pub(super) struct LoweringCtx<'lcx, 'ast> {
@@ -184,13 +186,12 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                         return Ok(ir::ExprKind::I16Literal(*literal as i16));
                     } else if self.sess.tys.ty_sess().make_i32() == ty {
                         return Ok(ir::ExprKind::I32Literal(*literal as i32));
-                    } else if self.sess.tys.ty_sess().make_u64() == ty {
-                        return Ok(ir::ExprKind::U64Literal(*literal as u64));
+                    } else if self.sess.tys.ty_sess().make_i64() == ty {
+                        return Ok(ir::ExprKind::I64Literal(*literal as i64));
                     }
                 }
                 ir::ExprKind::I32Literal(*literal as i32)
             }
-            ast::Expr::U64Literal(literal) => ir::ExprKind::U64Literal(*literal),
             ast::Expr::ArrayLiteral(elements) => {
                 let mut lowered_elements = Vec::with_capacity(elements.len());
                 let element_ty = self
@@ -359,6 +360,45 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     address_length,
                 }
             }
+            ast::Expr::Recv {
+                socket_file_descriptor,
+                buffer,
+                buffer_length,
+                flags,
+            } => {
+                let socket_file_descriptor =
+                    self.lower_expr(None, socket_file_descriptor, socket_file_descriptor.span())?;
+                let buffer = self.lower_expr(None, buffer, buffer.span())?;
+                let buffer_length = self.lower_expr(Some(self.sess.tys.ty_sess().make_i64()), buffer_length, buffer_length.span())?;
+                let flags = self.lower_expr(None, flags, flags.span())?;
+                ir::ExprKind::Recv {
+                    socket_file_descriptor,
+                    buffer,
+                    buffer_length,
+                    flags,
+                }
+            }
+            ast::Expr::Send {
+                socket_file_descriptor,
+                buffer,
+                buffer_length,
+                content,
+                flags,
+            } => {
+                let socket_file_descriptor =
+                    self.lower_expr(None, socket_file_descriptor, socket_file_descriptor.span())?;
+                let buffer = self.lower_expr(None, buffer, buffer.span())?;
+                let buffer_length = self.lower_expr(Some(self.sess.tys.ty_sess().make_i64()), buffer_length, buffer_length.span())?;
+                let content = self.lower_expr(Some(self.sess.tys.ty_sess().make_string()), content, content.span())?;
+                let flags = self.lower_expr(None, flags, flags.span())?;
+                ir::ExprKind::Send {
+                    socket_file_descriptor,
+                    buffer,
+                    buffer_length,
+                    content,
+                    flags,
+                }
+            }
         })
     }
 
@@ -427,7 +467,6 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 // TODO: 型のハンドリング
                 ir::PatternKind::I32Literal(*literal as i32)
             }
-            ast::Pattern::U64Literal(literal) => ir::PatternKind::U64Literal(*literal),
             ast::Pattern::ArrayLiteral(_) => {
                 unimplemented!();
                 // let mut lowered_elements = Vec::with_capacity(elements.len());
@@ -535,7 +574,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     arms: vec![
                         ir::Arm {
                             span: otherwise.span(),
-                            pattern: ir::PatternKind::U64Literal(0),
+                            pattern: ir::PatternKind::I64Literal(0),
                             target: Box::new(
                                 self.mk_child().lower_term_to_block(otherwise, otherwise.span())?,
                             ),

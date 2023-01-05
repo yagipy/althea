@@ -36,15 +36,27 @@ func main() i32 {
                 0
             } else {
                 println("listen ok")
+                //let client = SockAddrIn {
+                //    family: 2,
+                //    port: 0,
+                //    addr: InAddr {
+                //        s_addr: 0,
+                //    },
+                //    buf: [0; 8],
+                //}
                 let accept_id = accept(socket_id, sock_addr_in, 16)
                 if accept_id < 0 {
                     println("accept error")
                     0
                 } else {
                     println("accept ok")
-                    let buf: [i8; 2048] = [0; 2048] // ポインタである必要あり
-                    let recv_id = recv(socket_id, buf, 2048, 0)
-                    accept_id
+                    let req_buf: [i8; 2048] = [0; 2048]
+                    let recv_id = recv(accept_id, req_buf, 2048, 0)
+                    let res_buf: [i8; 2048] = [0; 2048]
+                    let send_id = send(accept_id, res_buf, 2048, "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\nHello", 0)
+                    // close(accept_id)
+                    // close(socket_id)
+                    0
                 }
             }
         }

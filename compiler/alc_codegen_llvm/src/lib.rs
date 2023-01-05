@@ -29,6 +29,8 @@ const ACCEPT: &str = "accept";
 const RECV: &str = "recv";
 const SEND: &str = "send";
 const CLOSE: &str = "close";
+const SNPRINTF: &str = "snprintf";
+const STRLEN: &str = "strlen";
 
 pub fn generate<'a>(
     command_options: &'a CommandOptions,
@@ -220,6 +222,27 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 .fn_type(&[self.context.i32_type().as_basic_type_enum().into()], false),
             None,
         );
+        self.module.add_function(
+            SNPRINTF,
+            self.context
+                .i32_type()
+                .fn_type(&[
+                    self.context.i8_type().ptr_type(AddressSpace::Generic).as_basic_type_enum().into(),
+                    self.context.i64_type().as_basic_type_enum().into(),
+                    // self.context.i8_type().ptr_type(AddressSpace::Generic).as_basic_type_enum().into(),
+                    self.context.i8_type().ptr_type(AddressSpace::Generic).as_basic_type_enum().into(),
+                ], false),
+            None,
+        );
+        self.module.add_function(
+        STRLEN,
+            self.context
+                .i64_type()
+                .fn_type(&[
+                    self.context.i8_type().ptr_type(AddressSpace::Generic).as_basic_type_enum().into(),
+                ], false),
+            None,
+        );
     }
 
     fn lookup_def(&self, def: ir::DefIdx, span: Span) -> Result<FunctionValue<'ctx>> {
@@ -284,8 +307,8 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     }
 
     #[inline]
-    fn compile_i64_literal(&self, literal: u64) -> IntValue<'ctx> {
-        self.context.i64_type().const_int(literal, false)
+    fn compile_i64_literal(&self, literal: i64) -> IntValue<'ctx> {
+        self.context.i64_type().const_int(literal as u64, false)
     }
 
     #[inline]
@@ -318,10 +341,10 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 }
                 self.context.i32_type().const_array(&values)
             }
-            ty::TyKind::U64 => {
+            ty::TyKind::I64 => {
                 let mut values = Vec::with_capacity(elements.len());
                 for element in elements {
-                    if let ExprKind::U64Literal(literal) = element {
+                    if let ExprKind::I64Literal(literal) = element {
                         values.push(self.compile_i64_literal(literal))
                     }
                 }
@@ -427,7 +450,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let variant_ty = self.ty_sess.ty_kind(ty).variant_ty(idx).unwrap();
         let body_ptr = self.enum_body_ptr(ptr, ty);
-        if variant_ty != self.ty_sess.make_u64() {
+        if variant_ty != self.ty_sess.make_i64() {
             let uncast_body = self.builder.build_load(body_ptr, "body");
             self.builder
                 .build_int_to_ptr(
@@ -458,7 +481,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     ) {
         let variant_ty = self.ty_sess.ty_kind(ty).variant_ty(idx).unwrap();
         let body_ptr = self.enum_body_ptr(ptr, ty);
-        let cast_body = if variant_ty != self.ty_sess.make_u64() {
+        let cast_body = if variant_ty != self.ty_sess.make_i64() {
             self.builder
                 .build_ptr_to_int(val.into_pointer_value(), self.context.i64_type(), "cast_body")
                 .into()
@@ -508,7 +531,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             ty::TyKind::I8 => self.context.i8_type().into(),
             ty::TyKind::I16 => self.context.i16_type().into(),
             ty::TyKind::I32 => self.context.i32_type().into(),
-            ty::TyKind::U64 => self.context.i64_type().into(),
+            ty::TyKind::I64 => self.context.i64_type().into(),
             ty::TyKind::Array(Array { element_ty: _, size }) => {
                 self.context.i8_type().array_type(*size as u32).into()
             }
@@ -531,7 +554,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn compile_basic_ty(&self, ty: ty::Ty) -> BasicTypeEnum<'ctx> {
         let compiled_ty_unboxed = self.compile_basic_ty_unboxed(ty);
-        if self.ty_sess.ty_kind(ty).is_u64()
+        if self.ty_sess.ty_kind(ty).is_i64()
             || self.ty_sess.ty_kind(ty).is_i32()
             || self.ty_sess.ty_kind(ty).is_i16()
             || self.ty_sess.ty_kind(ty).is_i8()

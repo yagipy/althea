@@ -248,14 +248,14 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn unpack_u64_literal(&self, data: &str, span: Span) -> Result<u64> {
-        data.parse::<u64>().map_err(|err| {
-            Box::from(Diagnostic::new_bug(
-                "failed to parse u64 literal",
-                Label::new(self.file_id, span, err.to_string()),
-            ))
-        })
-    }
+    // fn unpack_u64_literal(&self, data: &str, span: Span) -> Result<u64> {
+    //     data.parse::<u64>().map_err(|err| {
+    //         Box::from(Diagnostic::new_bug(
+    //             "failed to parse u64 literal",
+    //             Label::new(self.file_id, span, err.to_string()),
+    //         ))
+    //     })
+    // }
 
     fn next_number_literal(&mut self) -> Result<Spanned<i64>> {
         let token = self.eat(Kind::NumberLiteral)?;
@@ -264,12 +264,12 @@ impl<'a> Parser<'a> {
             .span(self.unpack_number_literal(token.value().unwrap(), token.span())?))
     }
 
-    fn next_u64_literal(&mut self) -> Result<Spanned<u64>> {
-        let token = self.eat(Kind::U64Literal)?;
-        Ok(token
-            .span()
-            .span(self.unpack_u64_literal(token.value().unwrap(), token.span())?))
-    }
+    // fn next_u64_literal(&mut self) -> Result<Spanned<u64>> {
+    //     let token = self.eat(Kind::U64Literal)?;
+    //     Ok(token
+    //         .span()
+    //         .span(self.unpack_u64_literal(token.value().unwrap(), token.span())?))
+    // }
 
     fn next_string_literal(&mut self) -> Result<Spanned<String>> {
         let token = self.eat(Kind::StringLiteral)?;
@@ -283,8 +283,8 @@ impl<'a> Parser<'a> {
             Ok(self.eat(Kind::I16Ty)?.span().span(ast::Ty::I16))
         } else if self.next_is(Kind::I32Ty) {
             Ok(self.eat(Kind::I32Ty)?.span().span(ast::Ty::I32))
-        } else if self.next_is(Kind::U64Ty) {
-            Ok(self.eat(Kind::U64Ty)?.span().span(ast::Ty::U64))
+        } else if self.next_is(Kind::I64Ty) {
+            Ok(self.eat(Kind::I64Ty)?.span().span(ast::Ty::I64))
         } else if self.next_is(Kind::StringTy) {
             Ok(self.eat(Kind::StringTy)?.span().span(ast::Ty::String))
         } else if self.next_is(Kind::LSquare) {
@@ -367,9 +367,6 @@ impl<'a> Parser<'a> {
         } else if self.next_is(Kind::NumberLiteral) {
             let literal = self.next_number_literal()?;
             Ok(literal.span().span(ast::Expr::NumberLiteral(literal.into_raw())))
-        } else if self.next_is(Kind::U64Literal) {
-            let literal = self.next_u64_literal()?;
-            Ok(literal.span().span(ast::Expr::U64Literal(literal.into_raw())))
         } else if self.next_is(Kind::StringLiteral) {
             let literal = self.next_string_literal()?;
             Ok(literal.span().span(ast::Expr::StringLiteral(literal.into_raw())))
@@ -434,6 +431,43 @@ impl<'a> Parser<'a> {
                 address: address.boxed(),
                 address_length: address_length.boxed(),
             }))
+        } else if self.next_is(Kind::Recv) {
+            let span = self.eat(Kind::Recv)?.span();
+            self.eat(Kind::LParen)?;
+            let socket_file_descriptor = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let buffer = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let buffer_length = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let flags = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            Ok(span.span(ast::Expr::Recv {
+                socket_file_descriptor: socket_file_descriptor.boxed(),
+                buffer: buffer.boxed(),
+                buffer_length: buffer_length.boxed(),
+                flags: flags.boxed(),
+            }))
+        } else if self.next_is(Kind::Send) {
+            let span = self.eat(Kind::Send)?.span();
+            self.eat(Kind::LParen)?;
+            let socket_file_descriptor = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let buffer = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let buffer_length = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let content = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let flags = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            Ok(span.span(ast::Expr::Send {
+                socket_file_descriptor: socket_file_descriptor.boxed(),
+                buffer: buffer.boxed(),
+                buffer_length: buffer_length.boxed(),
+                content: content.boxed(),
+                flags: flags.boxed(),
+            }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)
         } else if self.next_is_unop() {
@@ -446,7 +480,6 @@ impl<'a> Parser<'a> {
             }))
         } else {
             Err(Box::from(self.multi_expectation_diagnostic(vec![
-                Kind::U64Literal,
                 Kind::Ident,
                 Kind::LParen,
             ])))
@@ -497,9 +530,6 @@ impl<'a> Parser<'a> {
             Ok(literal
                 .span()
                 .span(ast::Pattern::NumberLiteral(literal.into_raw())))
-        } else if self.next_is(Kind::U64Literal) {
-            let literal = self.next_u64_literal()?;
-            Ok(literal.span().span(ast::Pattern::U64Literal(literal.into_raw())))
         } else if self.next_is(Kind::StringLiteral) {
             let literal = self.next_string_literal()?;
             Ok(literal
@@ -534,7 +564,7 @@ impl<'a> Parser<'a> {
             }
         } else {
             Err(Box::from(
-                self.multi_expectation_diagnostic(vec![Kind::U64Literal, Kind::Ident])
+                self.multi_expectation_diagnostic(vec![Kind::NumberLiteral, Kind::Ident])
                     .with_notes(vec!["this is in order to form a valid pattern".to_owned()]),
             ))
         }
