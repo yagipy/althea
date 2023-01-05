@@ -82,6 +82,10 @@ pub enum Expr {
         address: Spanned<Box<Expr>>,
         address_length: Spanned<Box<Expr>>,
     },
+    Listen {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        backlog: Spanned<Box<Expr>>,
+    },
 }
 
 #[derive(Debug)]

@@ -164,6 +164,10 @@ pub enum ExprKind {
         address: LocalIdx,
         address_length: LocalIdx,
     },
+    Listen {
+        socket_file_descriptor: LocalIdx,
+        backlog: LocalIdx,
+    },
 }
 
 #[derive(Clone, Debug)]
