@@ -332,6 +332,18 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     address_length,
                 }
             }
+            ast::Expr::Listen {
+                socket_file_descriptor,
+                backlog,
+            } => {
+                let socket_file_descriptor =
+                    self.lower_expr(None, socket_file_descriptor, socket_file_descriptor.span())?;
+                let backlog = self.lower_expr(None, backlog, backlog.span())?;
+                ir::ExprKind::Listen {
+                    socket_file_descriptor,
+                    backlog,
+                }
+            }
         })
     }
 

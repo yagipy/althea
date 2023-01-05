@@ -336,6 +336,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
             }
             ir::ExprKind::Socket { .. } => Ok(self.ty_sess.make_i32()),
             ir::ExprKind::Bind { .. } => Ok(self.ty_sess.make_i32()),
+            ir::ExprKind::Listen { .. } => Ok(self.ty_sess.make_i32()),
         }
     }
 

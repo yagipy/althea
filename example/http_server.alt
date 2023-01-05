@@ -30,7 +30,14 @@ func main() i32 {
             0
         } else {
             println("bind ok")
-            bind_id
+            let listen_id = listen(socket_id, 5)
+            if listen_id != 0 {
+                println("listen error")
+                0
+            } else {
+                println("listen ok")
+                listen_id
+            }
         }
     }
 }

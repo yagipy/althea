@@ -377,6 +377,17 @@ impl<'a> Parser<'a> {
                 address: address.boxed(),
                 address_length: address_length.boxed(),
             }))
+        } else if self.next_is(Kind::Listen) {
+            let span = self.eat(Kind::Listen)?.span();
+            self.eat(Kind::LParen)?;
+            let socket_file_descriptor = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let backlog = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            Ok(span.span(ast::Expr::Listen {
+                socket_file_descriptor: socket_file_descriptor.boxed(),
+                backlog: backlog.boxed(),
+            }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)
         } else if self.next_is_unop() {

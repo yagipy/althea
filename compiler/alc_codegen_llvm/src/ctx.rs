@@ -1,4 +1,4 @@
-use crate::{CodegenLLVM, BIND, PRINTF, SOCKET};
+use crate::{CodegenLLVM, BIND, LISTEN, PRINTF, SOCKET};
 use alc_ast_lowering::{ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
@@ -228,6 +228,29 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                         ))
                     })?;
                 Ok(bind)
+            }
+            ir::ExprKind::Listen {
+                socket_file_descriptor,
+                backlog,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let backlog = self.lookup(*backlog)?.into_int_value();
+                let listen = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(LISTEN).unwrap(),
+                        &[socket_file_descriptor.into(), backlog.into()],
+                        "listen",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(listen)
             }
         }
     }
