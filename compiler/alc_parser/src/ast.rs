@@ -43,7 +43,7 @@ pub enum BinopKind {
     RShift,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Expr {
     NumberLiteral(i64),
     ArrayLiteral(Vec<Spanned<Expr>>),

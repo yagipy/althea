@@ -42,6 +42,8 @@ func main() i32 {
                     0
                 } else {
                     println("accept ok")
+                    let buf: [i8; 2048] = [0; 2048] // ポインタである必要あり
+                    let recv_id = recv(socket_id, buf, 2048, 0)
                     accept_id
                 }
             }
