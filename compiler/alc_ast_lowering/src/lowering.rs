@@ -129,7 +129,7 @@ impl<'ast> Lowering<'ast> {
         let return_ty = self.tys.lookup_ty(&decl.return_ty, decl.return_ty.span())?;
         Ok(ir::Def {
             def_idx,
-            name: decl.name.clone(),
+            name: decl.name.to_string(),
             span: decl.name.span(),
             ty: self.tys.ty_sess().make_fn(return_ty, param_tys),
             entry: lcx.lower_entry(param_bindings, &decl.body, decl.body.span())?,

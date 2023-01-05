@@ -7,7 +7,7 @@ use std::ops::Deref;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Span(codespan::Span);
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Spanned<T>(Span, T);
 
 #[allow(clippy::from_over_into)]

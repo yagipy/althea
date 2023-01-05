@@ -1,5 +1,6 @@
 use crate::{
     ast,
+    ast::Expr,
     lexer::Lexer,
     token::{Kind, Token},
 };
@@ -202,6 +203,37 @@ impl<'a> Parser<'a> {
         Ok(span.span(elems))
     }
 
+    fn next_array_elements(&mut self) -> Result<Spanned<Vec<Spanned<Expr>>>> {
+        let span = self.eat(Kind::LSquare)?.span();
+        let mut elems = vec![];
+
+        if self.next_is(Kind::RSquare) {
+            self.eat(Kind::RSquare)?;
+            return Ok(span.span(elems));
+        }
+        let first_val = self.next_expr()?;
+        elems.push(first_val.clone());
+        if self.next_is(Kind::Semi) {
+            self.eat(Kind::Semi)?;
+            let count = self.next_number_literal()?;
+            for _ in 1..count.into_raw() {
+                elems.push(first_val.clone());
+            }
+            return Ok(span.merge(self.eat(Kind::RSquare)?.span()).span(elems));
+        }
+        self.eat(Kind::Comma)?;
+        while !self.next_is(Kind::RSquare) {
+            elems.push(self.next_expr()?);
+            if self.next_is(Kind::Comma) {
+                self.eat(Kind::Comma)?;
+            } else {
+                break;
+            }
+        }
+        let span = span.merge(self.eat(Kind::RSquare)?.span());
+        Ok(span.span(elems))
+    }
+
     fn next_ident(&mut self) -> Result<Spanned<ast::Ident>> {
         let token = self.eat(Kind::Ident)?;
         Ok(token.span().span(token.value().unwrap().to_string()))
@@ -347,7 +379,7 @@ impl<'a> Parser<'a> {
             self.eat(Kind::RParen)?;
             Ok(expr)
         } else if self.next_is(Kind::LSquare) {
-            let elements = self.next_comma_group(Kind::LSquare, Kind::RSquare, |this| this.next_expr())?;
+            let elements = self.next_array_elements()?;
             Ok(elements.span().span(ast::Expr::ArrayLiteral(elements.into_raw())))
         } else if self.next_is(Kind::Socket) {
             let span = self.eat(Kind::Socket)?.span();
