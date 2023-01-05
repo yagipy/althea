@@ -36,7 +36,14 @@ func main() i32 {
                 0
             } else {
                 println("listen ok")
-                listen_id
+                let accept_id = accept(socket_id, sock_addr_in, 16)
+                if accept_id < 0 {
+                    println("accept error")
+                    0
+                } else {
+                    println("accept ok")
+                    accept_id
+                }
             }
         }
     }

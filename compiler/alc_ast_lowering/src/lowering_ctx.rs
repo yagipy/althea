@@ -344,6 +344,21 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     backlog,
                 }
             }
+            ast::Expr::Accept {
+                socket_file_descriptor,
+                address,
+                address_length,
+            } => {
+                let socket_file_descriptor =
+                    self.lower_expr(None, socket_file_descriptor, socket_file_descriptor.span())?;
+                let address = self.lower_expr(None, address, address.span())?;
+                let address_length = self.lower_expr(None, address_length, address_length.span())?;
+                ir::ExprKind::Accept {
+                    socket_file_descriptor,
+                    address,
+                    address_length,
+                }
+            }
         })
     }
 
