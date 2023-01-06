@@ -2,6 +2,7 @@ use crate::{CodegenLLVM, ACCEPT, BIND, LISTEN, PRINTF, SOCKET};
 use alc_ast_lowering::{ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
+    types::BasicType,
     values::{ArrayValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, VectorValue},
     AddressSpace,
     IntPredicate,
@@ -254,33 +255,30 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
             }
             ir::ExprKind::Accept {
                 socket_file_descriptor,
-                address,
-                address_length,
             } => {
                 let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
-                let address = self.lookup(*address)?.into_pointer_value();
-                let address_length = self.lookup(*address_length)?.into_int_value();
-                let casted_address = self.builder.build_bitcast(
-                    address,
-                    self.context
-                        .struct_type(
-                            &[
-                                self.context.i16_type().into(),
-                                self.context.i8_type().array_type(14).into(),
-                            ],
-                            false,
-                        )
-                        .ptr_type(AddressSpace::Generic),
-                    "cast_tmp",
-                );
                 let accept = self
                     .builder
                     .build_call(
                         self.module.get_function(ACCEPT).unwrap(),
                         &[
                             socket_file_descriptor.into(),
-                            casted_address.into(),
-                            address_length.into(),
+                            self.context
+                                .struct_type(
+                                    &[
+                                        self.context.i16_type().as_basic_type_enum(),
+                                        self.context.i8_type().array_type(14).as_basic_type_enum(),
+                                    ],
+                                    false,
+                                )
+                                .ptr_type(AddressSpace::Generic)
+                                .const_zero()
+                                .into(),
+                            self.context
+                                .i32_type()
+                                .ptr_type(AddressSpace::Generic)
+                                .const_zero()
+                                .into(),
                         ],
                         "accept",
                     )

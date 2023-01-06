@@ -170,8 +170,6 @@ pub enum ExprKind {
     },
     Accept {
         socket_file_descriptor: LocalIdx,
-        address: LocalIdx,
-        address_length: LocalIdx,
     },
 }
 

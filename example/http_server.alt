@@ -18,7 +18,7 @@ func main() i32 {
         println("socket ok")
         let sock_addr_in = SockAddrIn {
             family: 2,
-            port: 47115,
+            port: 20480,
             addr: InAddr {
                 s_addr: 0,
             },
@@ -36,14 +36,14 @@ func main() i32 {
                 0
             } else {
                 println("listen ok")
-                let accept_id = accept(socket_id, sock_addr_in, 16)
+                let accept_id = accept(socket_id)
                 if accept_id < 0 {
                     println("accept error")
                     0
                 } else {
                     println("accept ok")
-                    let buf: [i8; 2048] = [0; 2048] // ポインタである必要あり
-                    let recv_id = recv(socket_id, buf, 2048, 0)
+                    //let buf: [i8; 2048] = [0; 2048] // ポインタである必要あり
+                    //let recv_id = recv(socket_id, buf, 2048, 0)
                     accept_id
                 }
             }

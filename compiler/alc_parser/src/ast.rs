@@ -88,8 +88,6 @@ pub enum Expr {
     },
     Accept {
         socket_file_descriptor: Spanned<Box<Expr>>,
-        address: Spanned<Box<Expr>>,
-        address_length: Spanned<Box<Expr>>,
     },
 }
 
