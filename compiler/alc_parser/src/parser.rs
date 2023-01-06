@@ -409,6 +409,43 @@ impl<'a> Parser<'a> {
             Ok(span.span(ast::Expr::Accept {
                 socket_file_descriptor: socket_file_descriptor.boxed(),
             }))
+        } else if self.next_is(Kind::Recv) {
+            let span = self.eat(Kind::Recv)?.span();
+            self.eat(Kind::LParen)?;
+            let socket_file_descriptor = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let buffer = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let buffer_length = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let flags = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            Ok(span.span(ast::Expr::Recv {
+                socket_file_descriptor: socket_file_descriptor.boxed(),
+                buffer: buffer.boxed(),
+                buffer_length: buffer_length.boxed(),
+                flags: flags.boxed(),
+            }))
+        } else if self.next_is(Kind::Send) {
+            let span = self.eat(Kind::Send)?.span();
+            self.eat(Kind::LParen)?;
+            let socket_file_descriptor = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let buffer = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let buffer_length = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let content = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let flags = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            Ok(span.span(ast::Expr::Send {
+                socket_file_descriptor: socket_file_descriptor.boxed(),
+                buffer: buffer.boxed(),
+                buffer_length: buffer_length.boxed(),
+                content: content.boxed(),
+                flags: flags.boxed(),
+            }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)
         } else if self.next_is_unop() {

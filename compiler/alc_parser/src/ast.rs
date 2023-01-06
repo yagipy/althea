@@ -88,6 +88,19 @@ pub enum Expr {
     Accept {
         socket_file_descriptor: Spanned<Box<Expr>>,
     },
+    Recv {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        buffer: Spanned<Box<Expr>>,
+        buffer_length: Spanned<Box<Expr>>,
+        flags: Spanned<Box<Expr>>,
+    },
+    Send {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        buffer: Spanned<Box<Expr>>,
+        buffer_length: Spanned<Box<Expr>>,
+        content: Spanned<Box<Expr>>,
+        flags: Spanned<Box<Expr>>,
+    },
 }
 
 #[derive(Debug)]

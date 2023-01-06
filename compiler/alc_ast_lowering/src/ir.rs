@@ -171,6 +171,19 @@ pub enum ExprKind {
     Accept {
         socket_file_descriptor: LocalIdx,
     },
+    Recv {
+        socket_file_descriptor: LocalIdx,
+        buffer: LocalIdx,
+        buffer_length: LocalIdx,
+        flags: LocalIdx,
+    },
+    Send {
+        socket_file_descriptor: LocalIdx,
+        buffer: LocalIdx,
+        buffer_length: LocalIdx,
+        content: LocalIdx,
+        flags: LocalIdx,
+    },
 }
 
 #[derive(Clone, Debug)]
