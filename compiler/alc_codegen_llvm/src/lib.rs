@@ -29,6 +29,9 @@ const ACCEPT: &str = "accept";
 const RECV: &str = "recv";
 const SEND: &str = "send";
 const CLOSE: &str = "close";
+const SNPRINTF: &str = "snprintf";
+const STRLEN: &str = "strlen";
+const HTONS: &str = "htons";
 
 pub fn generate<'a>(
     command_options: &'a CommandOptions,
@@ -222,6 +225,47 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             self.context
                 .i32_type()
                 .fn_type(&[self.context.i32_type().as_basic_type_enum().into()], false),
+            None,
+        );
+        self.module.add_function(
+            SNPRINTF,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context.i64_type().as_basic_type_enum().into(),
+                    // self.context.i8_type().ptr_type(AddressSpace::Generic).as_basic_type_enum().into(), // TODO: HTTPヘッダー
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            STRLEN,
+            self.context.i64_type().fn_type(
+                &[self
+                    .context
+                    .i8_type()
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum()
+                    .into()],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            HTONS,
+            self.context
+                .i16_type()
+                .fn_type(&[self.context.i16_type().as_basic_type_enum().into()], false),
             None,
         );
     }
