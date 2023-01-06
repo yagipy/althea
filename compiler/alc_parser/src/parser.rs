@@ -424,15 +424,9 @@ impl<'a> Parser<'a> {
             let span = self.eat(Kind::Accept)?.span();
             self.eat(Kind::LParen)?;
             let socket_file_descriptor = self.next_expr()?;
-            self.eat(Kind::Comma)?;
-            let address = self.next_expr()?;
-            self.eat(Kind::Comma)?;
-            let address_length = self.next_expr()?;
             self.eat(Kind::RParen)?;
             Ok(span.span(ast::Expr::Accept {
                 socket_file_descriptor: socket_file_descriptor.boxed(),
-                address: address.boxed(),
-                address_length: address_length.boxed(),
             }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)

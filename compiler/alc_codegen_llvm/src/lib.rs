@@ -173,7 +173,11 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                         .ptr_type(AddressSpace::Generic)
                         .as_basic_type_enum()
                         .into(),
-                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .i32_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
                 ],
                 false,
             ),
