@@ -248,27 +248,11 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn unpack_u64_literal(&self, data: &str, span: Span) -> Result<u64> {
-        data.parse::<u64>().map_err(|err| {
-            Box::from(Diagnostic::new_bug(
-                "failed to parse u64 literal",
-                Label::new(self.file_id, span, err.to_string()),
-            ))
-        })
-    }
-
     fn next_number_literal(&mut self) -> Result<Spanned<i64>> {
         let token = self.eat(Kind::NumberLiteral)?;
         Ok(token
             .span()
             .span(self.unpack_number_literal(token.value().unwrap(), token.span())?))
-    }
-
-    fn next_u64_literal(&mut self) -> Result<Spanned<u64>> {
-        let token = self.eat(Kind::U64Literal)?;
-        Ok(token
-            .span()
-            .span(self.unpack_u64_literal(token.value().unwrap(), token.span())?))
     }
 
     fn next_string_literal(&mut self) -> Result<Spanned<String>> {
@@ -283,8 +267,8 @@ impl<'a> Parser<'a> {
             Ok(self.eat(Kind::I16Ty)?.span().span(ast::Ty::I16))
         } else if self.next_is(Kind::I32Ty) {
             Ok(self.eat(Kind::I32Ty)?.span().span(ast::Ty::I32))
-        } else if self.next_is(Kind::U64Ty) {
-            Ok(self.eat(Kind::U64Ty)?.span().span(ast::Ty::U64))
+        } else if self.next_is(Kind::I64Ty) {
+            Ok(self.eat(Kind::I64Ty)?.span().span(ast::Ty::I64))
         } else if self.next_is(Kind::StringTy) {
             Ok(self.eat(Kind::StringTy)?.span().span(ast::Ty::String))
         } else if self.next_is(Kind::LSquare) {
@@ -367,9 +351,6 @@ impl<'a> Parser<'a> {
         } else if self.next_is(Kind::NumberLiteral) {
             let literal = self.next_number_literal()?;
             Ok(literal.span().span(ast::Expr::NumberLiteral(literal.into_raw())))
-        } else if self.next_is(Kind::U64Literal) {
-            let literal = self.next_u64_literal()?;
-            Ok(literal.span().span(ast::Expr::U64Literal(literal.into_raw())))
         } else if self.next_is(Kind::StringLiteral) {
             let literal = self.next_string_literal()?;
             Ok(literal.span().span(ast::Expr::StringLiteral(literal.into_raw())))
@@ -491,9 +472,6 @@ impl<'a> Parser<'a> {
             Ok(literal
                 .span()
                 .span(ast::Pattern::NumberLiteral(literal.into_raw())))
-        } else if self.next_is(Kind::U64Literal) {
-            let literal = self.next_u64_literal()?;
-            Ok(literal.span().span(ast::Pattern::U64Literal(literal.into_raw())))
         } else if self.next_is(Kind::StringLiteral) {
             let literal = self.next_string_literal()?;
             Ok(literal

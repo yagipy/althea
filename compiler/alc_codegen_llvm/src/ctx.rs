@@ -121,7 +121,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
             ir::ExprKind::I8Literal(literal) => Ok(self.compile_i8_literal(*literal).into()),
             ir::ExprKind::I16Literal(literal) => Ok(self.compile_i16_literal(*literal).into()),
             ir::ExprKind::I32Literal(literal) => Ok(self.compile_i32_literal(*literal).into()),
-            ir::ExprKind::U64Literal(literal) => Ok(self.compile_i64_literal(*literal).into()),
+            ir::ExprKind::I64Literal(literal) => Ok(self.compile_i64_literal(*literal).into()),
             ir::ExprKind::ArrayLiteral { element_ty, elements } => {
                 Ok(self.compile_array_literal(*element_ty, elements.to_vec()).into())
             }
@@ -362,7 +362,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
             ir::PatternKind::I8Literal(literal) => MatchCase::Literal(self.compile_i8_literal(*literal)),
             ir::PatternKind::I16Literal(literal) => MatchCase::Literal(self.compile_i16_literal(*literal)),
             ir::PatternKind::I32Literal(literal) => MatchCase::Literal(self.compile_i32_literal(*literal)),
-            ir::PatternKind::U64Literal(literal) => MatchCase::Literal(self.compile_i64_literal(*literal)),
+            ir::PatternKind::I64Literal(literal) => MatchCase::Literal(self.compile_i64_literal(*literal)),
             ir::PatternKind::ArrayLiteral { element_ty, elements } => {
                 MatchCase::ArrayLiteral(self.compile_array_literal(*element_ty, elements.to_owned()))
             }

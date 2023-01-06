@@ -125,7 +125,7 @@ pub enum ExprKind {
     I8Literal(i8),
     I16Literal(i16),
     I32Literal(i32),
-    U64Literal(u64),
+    I64Literal(i64),
     ArrayLiteral {
         element_ty: Ty,
         elements: Vec<ExprKind>,
@@ -185,7 +185,7 @@ pub enum PatternKind {
     I8Literal(i8),
     I16Literal(i16),
     I32Literal(i32),
-    U64Literal(u64),
+    I64Literal(i64),
     ArrayLiteral {
         element_ty: Ty,
         elements: Vec<ExprKind>,
