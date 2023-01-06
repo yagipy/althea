@@ -90,7 +90,7 @@ pub enum TyKind {
     I8,
     I16,
     I32,
-    U64,
+    I64,
     String,
     Array(Array),
     Enum(Enum),
@@ -204,8 +204,8 @@ impl TyKind {
     }
 
     #[inline]
-    pub fn is_u64(&self) -> bool {
-        matches!(self, TyKind::U64)
+    pub fn is_i64(&self) -> bool {
+        matches!(self, TyKind::I64)
     }
 
     #[inline]
@@ -289,8 +289,8 @@ impl TySess {
         self.make_unique(TyKind::I32)
     }
 
-    pub fn make_u64(&self) -> Ty {
-        self.make_unique(TyKind::U64)
+    pub fn make_i64(&self) -> Ty {
+        self.make_unique(TyKind::I64)
     }
 
     pub fn make_string(&self) -> Ty {

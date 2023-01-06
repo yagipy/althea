@@ -184,13 +184,12 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                         return Ok(ir::ExprKind::I16Literal(*literal as i16));
                     } else if self.sess.tys.ty_sess().make_i32() == ty {
                         return Ok(ir::ExprKind::I32Literal(*literal as i32));
-                    } else if self.sess.tys.ty_sess().make_u64() == ty {
-                        return Ok(ir::ExprKind::U64Literal(*literal as u64));
+                    } else if self.sess.tys.ty_sess().make_i64() == ty {
+                        return Ok(ir::ExprKind::I64Literal(*literal as i64));
                     }
                 }
                 ir::ExprKind::I32Literal(*literal as i32)
             }
-            ast::Expr::U64Literal(literal) => ir::ExprKind::U64Literal(*literal),
             ast::Expr::ArrayLiteral(elements) => {
                 let mut lowered_elements = Vec::with_capacity(elements.len());
                 let element_ty = self
@@ -421,7 +420,6 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 // TODO: 型のハンドリング
                 ir::PatternKind::I32Literal(*literal as i32)
             }
-            ast::Pattern::U64Literal(literal) => ir::PatternKind::U64Literal(*literal),
             ast::Pattern::ArrayLiteral(_) => {
                 unimplemented!();
                 // let mut lowered_elements = Vec::with_capacity(elements.len());
@@ -529,7 +527,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     arms: vec![
                         ir::Arm {
                             span: otherwise.span(),
-                            pattern: ir::PatternKind::U64Literal(0),
+                            pattern: ir::PatternKind::I64Literal(0),
                             target: Box::new(
                                 self.mk_child().lower_term_to_block(otherwise, otherwise.span())?,
                             ),

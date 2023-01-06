@@ -25,7 +25,7 @@ pub enum Kind {
     I8Ty,
     I16Ty,
     I32Ty,
-    U64Ty,
+    I64Ty,
     StringTy,
     Eq,
     MatchArrow,

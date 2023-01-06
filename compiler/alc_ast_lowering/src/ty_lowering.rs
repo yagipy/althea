@@ -14,7 +14,7 @@ pub struct TyLowering<'ast> {
     i8_ty: ty::Ty,
     i16_ty: ty::Ty,
     i32_ty: ty::Ty,
-    u64_ty: ty::Ty,
+    i64_ty: ty::Ty,
     string_ty: ty::Ty,
     tys: HashMap<&'ast ast::Ident, ty::Ty>,
     variants: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::VariantIdx>>,
@@ -27,7 +27,7 @@ impl<'ast> TyLowering<'ast> {
         let i8_ty = ty_sess.make_i8();
         let i16_ty = ty_sess.make_i16();
         let i32_ty = ty_sess.make_i32();
-        let u64_ty = ty_sess.make_u64();
+        let i64_ty = ty_sess.make_i64();
         let string_ty = ty_sess.make_string();
         TyLowering {
             command_options,
@@ -36,7 +36,7 @@ impl<'ast> TyLowering<'ast> {
             i8_ty,
             i16_ty,
             i32_ty,
-            u64_ty,
+            i64_ty,
             string_ty,
             tys: HashMap::new(),
             variants: HashMap::new(),
@@ -171,7 +171,7 @@ impl<'ast> TyLowering<'ast> {
             ast::Ty::I8 => Ok(self.i8_ty),
             ast::Ty::I16 => Ok(self.i16_ty),
             ast::Ty::I32 => Ok(self.i32_ty),
-            ast::Ty::U64 => Ok(self.u64_ty),
+            ast::Ty::I64 => Ok(self.i64_ty),
             ast::Ty::String => Ok(self.string_ty),
             ast::Ty::Array(element_ty, size) => Ok(self
                 .ty_sess

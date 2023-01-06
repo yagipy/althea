@@ -193,7 +193,7 @@ impl<'a> Lexer<'a> {
             "i8" => Kind::I8Ty.into(),
             "i16" => Kind::I16Ty.into(),
             "i32" => Kind::I32Ty.into(),
-            "u64" => Kind::U64Ty.into(),
+            "i64" => Kind::I64Ty.into(),
             "string" => Kind::StringTy.into(),
             "env" if self.nth_char(0) == '!' => {
                 self.chars.next();
