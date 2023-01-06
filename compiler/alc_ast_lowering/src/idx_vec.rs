@@ -1,4 +1,5 @@
 use crate::idx::Idx;
+use indexmap::IndexMap;
 use std::{
     collections::HashMap,
     default::Default,
@@ -164,6 +165,26 @@ where
     fn reindex<I: Idx>(self) -> (HashMap<K, I>, IdxVec<I, T>) {
         let mut idx_vec = IdxVec::with_capacity(self.len());
         let mut mapping = HashMap::new();
+        for (k, v) in self.into_iter() {
+            let i = idx_vec.push(v);
+            mapping.insert(k, i);
+        }
+        (mapping, idx_vec)
+    }
+}
+
+pub trait IndexableIndexMap<K, T> {
+    fn reindex<I: Idx>(self) -> (IndexMap<K, I>, IdxVec<I, T>);
+}
+
+impl<K, T, S> IndexableIndexMap<K, T> for IndexMap<K, T, S>
+where
+    K: Eq + Hash,
+    S: BuildHasher,
+{
+    fn reindex<I: Idx>(self) -> (IndexMap<K, I>, IdxVec<I, T>) {
+        let mut idx_vec = IdxVec::with_capacity(self.len());
+        let mut mapping = IndexMap::new();
         for (k, v) in self.into_iter() {
             let i = idx_vec.push(v);
             mapping.insert(k, i);

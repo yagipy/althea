@@ -1,4 +1,4 @@
-func main() u64 {
-    println("Hello, world")
+func main() i32 {
+    println("Hello, world\n")
     0
 }

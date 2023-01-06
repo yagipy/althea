@@ -1,4 +1,4 @@
-use crate::{CodegenLLVM, ACCEPT, BIND, LISTEN, PRINTF, SOCKET, RECV, SEND, STRLEN, SNPRINTF};
+use crate::{CodegenLLVM, ACCEPT, BIND, LISTEN, PRINTF, RECV, SEND, SNPRINTF, SOCKET, STRLEN};
 use alc_ast_lowering::{ir, ty};
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
@@ -336,34 +336,36 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
                 let buffer = self.lookup(*buffer)?.into_array_value();
                 let buffer_length = self.lookup(*buffer_length)?.into_int_value();
-                let content = self.lookup(*content)?;
+                let content = self.lookup(*content)?.into_vector_value();
                 let flags = self.lookup(*flags)?.into_int_value();
 
                 let allocated_buffer = self.builder.build_alloca(buffer.get_type(), "allocated_buffer");
                 let buffer_ptr = unsafe { self.gep(allocated_buffer, 0, "buffer_ptr") };
                 let allocated_content = self.builder.build_alloca(content.get_type(), "allocated_content");
+                self.builder.build_store(allocated_content, content);
                 let content_ptr = unsafe { self.gep(allocated_content, 0, "content_ptr") };
 
                 self.builder.build_call(
                     self.module.get_function(SNPRINTF).unwrap(),
-                    &[
-                        buffer_ptr.into(),
-                        buffer_length.into(),
-                        content_ptr.into(),
-                    ],
+                    &[buffer_ptr.into(), buffer_length.into(), content_ptr.into()],
                     "snprintf",
                 );
                 let buffer_ptr_with_content = unsafe { self.gep(allocated_buffer, 0, "buffer_ptr") };
-                let content_length = self.builder.build_call(
-                    self.module.get_function(STRLEN).unwrap(),
-                    &[buffer_ptr_with_content.into()],
-                    "content_length",
-                ).try_as_basic_value().left().ok_or_else(|| {
-                    Box::from(Diagnostic::new_bug(
-                        "attempted to return non-basic value from function call",
-                        Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
-                    ))
-                })?;
+                let content_length = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(STRLEN).unwrap(),
+                        &[buffer_ptr_with_content.into()],
+                        "content_length",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
                 let send = self
                     .builder
                     .build_call(
@@ -396,13 +398,10 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 self.bind(*binding, compiled_expr);
             }
             ir::InstructionKind::Println { idx } => {
-                let value = self.lookup(*idx).unwrap();
+                let value = self.lookup(*idx)?.into_vector_value();
                 let const_ref = self.builder.build_alloca(value.get_type(), "printf_tmp");
                 self.builder.build_store(const_ref, value);
-                let ptr;
-                unsafe {
-                    ptr = self.sess.gep(const_ref, 0, "printf_tmp");
-                }
+                let ptr = unsafe { self.sess.gep(const_ref, 0, "printf_tmp") };
                 self.builder.build_call(
                     self.module.get_function(PRINTF).unwrap(),
                     &[ptr.as_basic_value_enum().into()],

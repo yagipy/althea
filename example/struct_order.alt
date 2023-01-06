@@ -1,0 +1,22 @@
+struct SockAddrIn {
+    family: i32,
+    port: i16,
+    addr: InAddr,
+    buf: [i8; 8],
+}
+
+struct InAddr {
+    s_addr: i32,
+}
+
+func main() i32 {
+    let sock_addr_in = SockAddrIn {
+        family: 2,
+        port: 20480,
+        addr: InAddr {
+            s_addr: 0,
+        },
+        buf: [0, 0, 0, 0, 0, 0, 0, 0],
+    }
+    0
+}

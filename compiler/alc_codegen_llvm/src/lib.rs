@@ -237,14 +237,13 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                         .as_basic_type_enum()
                         .into(),
                     self.context.i64_type().as_basic_type_enum().into(),
-                    // self.context.i8_type().ptr_type(AddressSpace::Generic).as_basic_type_enum().into(), // TODO: HTTPヘッダー
                     self.context
                         .i8_type()
                         .ptr_type(AddressSpace::Generic)
                         .as_basic_type_enum()
                         .into(),
                 ],
-                false,
+                true,
             ),
             None,
         );
@@ -386,7 +385,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     #[inline]
     fn compile_string_literal(&self, literal: &str) -> VectorValue<'ctx> {
-        self.context.const_string(literal.as_bytes(), false)
+        self.context.const_string(literal.as_bytes(), true)
     }
 
     #[inline]
@@ -619,7 +618,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         let mut output_path = PathBuf::from(path.as_ref());
         output_path.set_extension("ll");
 
-        self.module.print_to_file(path).map_err(|e| {
+        self.module.print_to_file(output_path).map_err(|e| {
             Box::from(Diagnostic::new_error(
                 "failed to write LLVM IR to file",
                 Label::new(self.file_id, Span::dummy(), &format!("{}", e)),

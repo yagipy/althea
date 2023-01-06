@@ -34,7 +34,7 @@ int main() {
     }
 //    puts("listen ok");
 
-    memset(buf, 0, sizeof(buf));
+//    memset(buf, 0, sizeof(buf));
     snprintf(buf, sizeof(buf),
               "HTTP/1.0 200 OK\r\n"
               "Content-Type: text/html\r\n"

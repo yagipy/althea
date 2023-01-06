@@ -15,7 +15,6 @@ func main() i32 {
         println("socket error")
         0
     } else {
-        println("socket ok")
         let sock_addr_in = SockAddrIn {
             family: 2,
             port: 20480,
@@ -29,23 +28,23 @@ func main() i32 {
             println("bind error")
             0
         } else {
-            println("bind ok")
             let listen_id = listen(socket_id, 5)
             if listen_id != 0 {
                 println("listen error")
                 0
             } else {
-                println("listen ok")
                 let accept_id = accept(socket_id)
                 if accept_id < 0 {
                     println("accept error")
                     0
                 } else {
-                    println("accept ok")
-                    // let buf: [i8; 2048] = [0; 2048]
-                    // let recv_id: i64 = recv(accept_id, buf, 2048, 0)
-                    // let res_buf: [i8; 2048] = [0; 2048]
-                    // let send_id: i64 = send(accept_id, res_buf, 2048, "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\nHello", 0)
+                    let buf: [i8; 2048] = [0; 2048]
+                    let recv_id: i64 = recv(accept_id, buf, 2048, 0)
+                    let res_buf: [i8; 2048] = [0; 2048]
+                    let send_id: i64 = send(accept_id, res_buf, 2048, "HTTP/1.0 200 OK
+Content-Type: text/html
+
+Hello", 0)
                     0
                 }
             }

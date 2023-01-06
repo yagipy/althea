@@ -306,9 +306,9 @@ impl<'a> Parser<'a> {
             }))
         } else if self.next_is(Kind::LCurl) && res != Restriction::NoStructLiteral {
             let fields = self.next_comma_group(Kind::LCurl, Kind::RCurl, |this| {
-                let fieldname = this.next_ident()?;
+                let field_name = this.next_ident()?;
                 this.eat(Kind::Colon)?;
-                Ok((fieldname, this.next_expr()?))
+                Ok((field_name, this.next_expr()?))
             })?;
             let span = ident.span().merge(fields.span());
             Ok(span.span(ast::Expr::Record {

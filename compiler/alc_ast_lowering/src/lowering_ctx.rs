@@ -361,7 +361,11 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 let socket_file_descriptor =
                     self.lower_expr(None, socket_file_descriptor, socket_file_descriptor.span())?;
                 let buffer = self.lower_expr(None, buffer, buffer.span())?;
-                let buffer_length = self.lower_expr(Some(self.sess.tys.ty_sess().make_i64()), buffer_length, buffer_length.span())?;
+                let buffer_length = self.lower_expr(
+                    Some(self.sess.tys.ty_sess().make_i64()),
+                    buffer_length,
+                    buffer_length.span(),
+                )?;
                 let flags = self.lower_expr(None, flags, flags.span())?;
                 ir::ExprKind::Recv {
                     socket_file_descriptor,
@@ -380,8 +384,16 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 let socket_file_descriptor =
                     self.lower_expr(None, socket_file_descriptor, socket_file_descriptor.span())?;
                 let buffer = self.lower_expr(None, buffer, buffer.span())?;
-                let buffer_length = self.lower_expr(Some(self.sess.tys.ty_sess().make_i64()), buffer_length, buffer_length.span())?;
-                let content = self.lower_expr(Some(self.sess.tys.ty_sess().make_string()), content, content.span())?;
+                let buffer_length = self.lower_expr(
+                    Some(self.sess.tys.ty_sess().make_i64()),
+                    buffer_length,
+                    buffer_length.span(),
+                )?;
+                let content = self.lower_expr(
+                    Some(self.sess.tys.ty_sess().make_string()),
+                    content,
+                    content.span(),
+                )?;
                 let flags = self.lower_expr(None, flags, flags.span())?;
                 ir::ExprKind::Send {
                     socket_file_descriptor,
