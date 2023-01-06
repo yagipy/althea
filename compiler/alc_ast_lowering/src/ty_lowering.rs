@@ -1,7 +1,11 @@
-use crate::{idx_vec::Indexable, ty};
+use crate::{
+    idx_vec::{Indexable, IndexableIndexMap},
+    ty,
+};
 use alc_command_option::CommandOptions;
 use alc_diagnostic::{Diagnostic, FileId, Label, Result, Span};
 use alc_parser::ast;
+use indexmap::IndexMap;
 use log::debug;
 use std::collections::HashMap;
 
@@ -18,7 +22,7 @@ pub struct TyLowering<'ast> {
     string_ty: ty::Ty,
     tys: HashMap<&'ast ast::Ident, ty::Ty>,
     variants: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::VariantIdx>>,
-    fields: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::FieldIdx>>,
+    fields: HashMap<ty::Ty, IndexMap<&'ast ast::Ident, ty::FieldIdx>>,
 }
 
 impl<'ast> TyLowering<'ast> {
@@ -105,7 +109,7 @@ impl<'ast> TyLowering<'ast> {
                         })?;
                 }
                 ast::Item::Struct(def) => {
-                    let mut field_tys = HashMap::new();
+                    let mut field_tys = IndexMap::new();
                     for binding in def.fields.iter() {
                         if field_tys
                             .insert(&*binding.binder, self.lookup_binding(binding)?)

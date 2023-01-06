@@ -13,53 +13,53 @@ int main() {
 
     sock0 = socket(AF_INET, SOCK_STREAM, 0);
     if (sock0 < 0) {
-        puts("socket error");
+//        puts("socket error");
         return -1;
     }
-    puts("socket ok");
+//    puts("socket ok");
 
     addr.sin_family = AF_INET;
     addr.sin_port = htons(80);
     addr.sin_addr.s_addr = INADDR_ANY;
 
     if (bind(sock0, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-        puts("bind error");
+//        puts("bind error");
         return -1;
     }
-    puts("bind ok");
+//    puts("bind ok");
 
     if (listen(sock0, 5) != 0) {
-        puts("listen error");
+//        puts("listen error");
         return -1;
     }
-    puts("listen ok");
+//    puts("listen ok");
 
-    memset(buf, 0, sizeof(buf));
+//    memset(buf, 0, sizeof(buf));
     snprintf(buf, sizeof(buf),
               "HTTP/1.0 200 OK\r\n"
               "Content-Type: text/html\r\n"
               "\r\n"
               "Hello\r\n");
-    puts("snprintf ok");
+//    puts("snprintf ok");
 
     while (1) {
         sock = accept(sock0, NULL, NULL);
         if (sock < 0) {
-            puts("accept error");
+//            puts("accept error");
             break;
         }
-        puts("accept ok");
+//        puts("accept ok");
 
         memset(req_buf, 0, sizeof(req_buf));
         recv(sock, req_buf, sizeof(req_buf), 0);
-        puts("recv ok");
-        send(sock, buf, (int)strlen(buf), 0);
-        puts("send ok");
+//        puts("recv ok");
+        send(sock, buf, strlen(buf), 0);
+//        puts("send ok");
 
         close(sock);
-        puts("close(sock) ok");
+//        puts("close(sock) ok");
     }
     close(sock0);
-    puts("close(sock0) ok");
+//    puts("close(sock0) ok");
     return 0;
 }

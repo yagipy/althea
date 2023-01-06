@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4.8"
+indexmap = "1.9.2"
 alc_diagnostic = { path = "../alc_diagnostic" }
 alc_command_option = { path = "../alc_command_option" }
 alc_parser = { path = "../alc_parser" }
