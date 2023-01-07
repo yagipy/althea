@@ -101,6 +101,9 @@ pub enum Expr {
         content: Spanned<Box<Expr>>,
         flags: Spanned<Box<Expr>>,
     },
+    Close {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+    },
 }
 
 #[derive(Debug)]
