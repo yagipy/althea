@@ -33,23 +33,29 @@ func main() i32 {
                 println("listen error")
                 close(socket_id)
             } else {
-                let accept_id = accept(socket_id)
-                if accept_id < 0 {
-                    println("accept error")
-                    let close_res = close(accept_id)
-                    close(socket_id)
-                } else {
-                    let buf: [i8; 2048] = [0; 2048]
-                    let recv_size: i64 = recv(accept_id, buf, 2048, 0)
-                    let res_buf: [i8; 2048] = [0; 2048]
-                    let send_size: i64 = send(accept_id, res_buf, 2048, "HTTP/1.0 200 OK
-Content-Type: text/html
-
-Hello", 0)
-                    let close_res = close(accept_id)
-                    close(socket_id)
-                }
+                let transfer_res = transfer(socket_id)
+                close(socket_id)
             }
         }
+    }
+}
+
+func transfer(socket_id: i32) i32 {
+    let accept_id = accept(socket_id)
+    if accept_id < 0 {
+        println("accept error")
+        let close_res = close(accept_id)
+        close(socket_id)
+    } else {
+        let buf: [i8; 2048] = [0; 2048]
+        let recv_size: i64 = recv(accept_id, buf, 2048, 0)
+        let res_buf: [i8; 2048] = [0; 2048]
+        let send_size: i64 = send(accept_id, res_buf, 2048, "HTTP/1.0 200 OK
+Content-Type: text/html
+
+Welcome to Althea Server!
+", 0)
+        let close_res = close(accept_id)
+        transfer(socket_id)
     }
 }
