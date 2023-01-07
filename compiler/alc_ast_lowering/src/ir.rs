@@ -184,6 +184,9 @@ pub enum ExprKind {
         content: LocalIdx,
         flags: LocalIdx,
     },
+    Close {
+        socket_file_descriptor: LocalIdx,
+    },
 }
 
 #[derive(Clone, Debug)]

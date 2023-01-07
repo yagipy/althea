@@ -403,6 +403,15 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     flags,
                 }
             }
+            ast::Expr::Close {
+                socket_file_descriptor,
+            } => {
+                let socket_file_descriptor =
+                    self.lower_expr(None, socket_file_descriptor, socket_file_descriptor.span())?;
+                ir::ExprKind::Close {
+                    socket_file_descriptor,
+                }
+            }
         })
     }
 

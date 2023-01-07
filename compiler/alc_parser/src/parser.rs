@@ -446,6 +446,14 @@ impl<'a> Parser<'a> {
                 content: content.boxed(),
                 flags: flags.boxed(),
             }))
+        } else if self.next_is(Kind::Close) {
+            let span = self.eat(Kind::Close)?.span();
+            self.eat(Kind::LParen)?;
+            let socket_file_descriptor = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            Ok(span.span(ast::Expr::Close {
+                socket_file_descriptor: socket_file_descriptor.boxed(),
+            }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)
         } else if self.next_is_unop() {
