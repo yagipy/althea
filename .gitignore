@@ -3,4 +3,5 @@ target
 out
 out.ll
 out.o
+out.s
 .vagrant

@@ -91,6 +91,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             )
         })?;
         ctx.write_to_ll_file(&ctx.command_options.out)?;
+        ctx.write_to_asm_file(&ctx.command_options.out)?;
         let obj_file = ctx.write_to_obj_file(&ctx.command_options.out)?;
         ctx.execute_linker(obj_file)
     }
@@ -627,16 +628,37 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     }
 
     fn write_to_obj_file<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
-        let target_machine = self.get_target_machine();
+        let target_machine = self.get_target_machine()?;
 
         let mut output_path = PathBuf::from(path.as_ref());
         output_path.set_extension("o");
 
-        let compile_result = target_machine?
+        let compile_result = target_machine
             .write_to_file(self.module, FileType::Object, output_path.as_path())
             .map_err(|e| {
                 Diagnostic::new_error(
                     "failed to write object file",
+                    Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
+                )
+            });
+
+        match compile_result {
+            Ok(_) => Ok(output_path),
+            Err(diagnostic) => Err(Box::from(diagnostic)),
+        }
+    }
+
+    fn write_to_asm_file<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
+        let target_machine = self.get_target_machine()?;
+
+        let mut output_path = PathBuf::from(path.as_ref());
+        output_path.set_extension("s");
+
+        let compile_result = target_machine
+            .write_to_file(self.module, FileType::Assembly, output_path.as_path())
+            .map_err(|e| {
+                Diagnostic::new_error(
+                    "failed to write assembly file",
                     Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
                 )
             });
