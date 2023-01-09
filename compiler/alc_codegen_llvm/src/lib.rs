@@ -32,6 +32,8 @@ const CLOSE: &str = "close";
 const SNPRINTF: &str = "snprintf";
 const STRLEN: &str = "strlen";
 const HTONS: &str = "htons";
+const MALLOC: &str = "malloc";
+const FREE: &str = "free";
 
 pub fn generate<'a>(
     command_options: &'a CommandOptions,
@@ -102,7 +104,6 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     }
 
     fn bind_reserved_functions(&self) {
-        // TODO: GC
         self.module.add_function(
             PRINTF,
             self.context.i32_type().fn_type(
@@ -266,6 +267,22 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             self.context
                 .i16_type()
                 .fn_type(&[self.context.i16_type().as_basic_type_enum().into()], false),
+            None,
+        );
+        self.module.add_function(
+            MALLOC,
+            self.context
+                .i8_type()
+                .ptr_type(AddressSpace::Generic)
+                .fn_type(&[self.context.i64_type().as_basic_type_enum().into()], false),
+            None,
+        );
+        self.module.add_function(
+            FREE,
+            self.context.void_type().fn_type(
+                &[self.context.i8_type().ptr_type(AddressSpace::Generic).into()],
+                false,
+            ),
             None,
         );
     }
