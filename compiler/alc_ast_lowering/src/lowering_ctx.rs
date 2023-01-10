@@ -581,13 +581,14 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 then,
                 otherwise,
             } => {
-                let source = self.lower_expr(None, source, source.span())?;
+                let source =
+                    self.lower_expr(Some(self.sess.tys.ty_sess().make_i32()), source, source.span())?;
                 Ok(ir::Terminator::Match {
                     source,
                     arms: vec![
                         ir::Arm {
                             span: otherwise.span(),
-                            pattern: ir::PatternKind::I64Literal(0),
+                            pattern: ir::PatternKind::I32Literal(0),
                             target: Box::new(
                                 self.mk_child().lower_term_to_block(otherwise, otherwise.span())?,
                             ),

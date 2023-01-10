@@ -1,8 +1,9 @@
 struct User {
-    id: u64,
+    id: i32,
 }
-func main() u64 {
+func main() i32 {
     let user: User = User {
         id: 1,
     }
+    user.id
 }

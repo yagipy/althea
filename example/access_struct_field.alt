@@ -1,9 +1,9 @@
 struct Foo {
-    bar: u64,
-    test: u64,
+    bar: i32,
+    test: i32,
 }
 
-func main() u64 {
+func main() i32 {
     let foo: Foo = Foo {
         bar: 42,
         test: 32,
