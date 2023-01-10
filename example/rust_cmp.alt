@@ -1,8 +1,8 @@
 struct Foo {
-    var: u64,
+    var: i32,
 }
 
-func main() u64 {
+func main() i32 {
     let foo: Foo = Foo {
         var: 1,
     }

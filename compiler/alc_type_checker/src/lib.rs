@@ -224,7 +224,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                         ),
                     )))
                 } else {
-                    Ok(self.ty_sess.make_i64())
+                    Ok(self.ty_sess.make_i32())
                 }
             }
             ir::ExprKind::Call { target, args } => {

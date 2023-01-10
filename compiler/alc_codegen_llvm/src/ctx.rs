@@ -110,7 +110,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                     local!(idx),
                 );
                 self.builder
-                    .build_int_z_extend::<IntValue>(comparison, self.context.i64_type(), "cast_tmp")
+                    .build_int_z_extend::<IntValue>(comparison, self.context.i32_type(), "cast_tmp")
                     .into()
             }
         })
