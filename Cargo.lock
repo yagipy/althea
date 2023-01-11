@@ -64,9 +64,20 @@ dependencies = [
  "alc_codegen_llvm",
  "alc_command_option",
  "alc_diagnostic",
+ "alc_garbage_collector",
  "alc_parser",
  "alc_type_checker",
  "env_logger",
+ "log",
+]
+
+[[package]]
+name = "alc_garbage_collector"
+version = "0.0.0"
+dependencies = [
+ "alc_ast_lowering",
+ "alc_command_option",
+ "alc_diagnostic",
  "log",
 ]
 

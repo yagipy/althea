@@ -1,0 +1,11 @@
+struct User {
+    id: i32,
+}
+
+func main() i32 {
+    let user: User = User {
+        id: 1,
+    }
+    // userを解放する
+    0
+}
