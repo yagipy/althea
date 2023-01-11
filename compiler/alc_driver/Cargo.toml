@@ -14,3 +14,4 @@ alc_parser = { path = "../alc_parser" }
 alc_ast_lowering = { path = "../alc_ast_lowering" }
 alc_codegen_llvm = { path = "../alc_codegen_llvm" }
 alc_type_checker = { path = "../alc_type_checker" }
+alc_garbage_collector = { path = "../alc_garbage_collector" }
