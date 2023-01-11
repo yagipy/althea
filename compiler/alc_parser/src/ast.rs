@@ -4,7 +4,12 @@ pub type Ident = String;
 
 #[derive(Debug)]
 pub enum Ty {
-    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    String,
+    Array(Box<Ty>, i32),
     TyName(Ident),
 }
 
@@ -38,10 +43,12 @@ pub enum BinopKind {
     RShift,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Expr {
-    Literal(u64),
-    Var(Ident),
+    NumberLiteral(i64),
+    ArrayLiteral(Vec<Spanned<Expr>>),
+    StringLiteral(String),
+    Var(Vec<Spanned<Ident>>),
     Unop {
         kind: Spanned<UnopKind>,
         operand: Spanned<Box<Expr>>,
@@ -64,11 +71,46 @@ pub enum Expr {
         struct_name: Spanned<Ident>,
         fields: Vec<(Spanned<Ident>, Spanned<Expr>)>,
     },
+    Socket {
+        domain: Spanned<Box<Expr>>,
+        ty: Spanned<Box<Expr>>,
+        protocol: Spanned<Box<Expr>>,
+    },
+    Bind {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        address: Spanned<Box<Expr>>,
+        address_length: Spanned<Box<Expr>>,
+    },
+    Listen {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        backlog: Spanned<Box<Expr>>,
+    },
+    Accept {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+    },
+    Recv {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        buffer: Spanned<Box<Expr>>,
+        buffer_length: Spanned<Box<Expr>>,
+        flags: Spanned<Box<Expr>>,
+    },
+    Send {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+        buffer: Spanned<Box<Expr>>,
+        buffer_length: Spanned<Box<Expr>>,
+        content: Spanned<Box<Expr>>,
+        flags: Spanned<Box<Expr>>,
+    },
+    Close {
+        socket_file_descriptor: Spanned<Box<Expr>>,
+    },
 }
 
 #[derive(Debug)]
 pub enum Pattern {
-    Literal(u64),
+    NumberLiteral(i64),
+    ArrayLiteral(Vec<Spanned<Expr>>),
+    StringLiteral(String),
     Ident(Ident),
     Variant {
         enum_name: Spanned<Ident>,
@@ -97,6 +139,10 @@ pub enum Term {
         source: Spanned<Expr>,
         then: Box<Spanned<Term>>,
         otherwise: Box<Spanned<Term>>,
+    },
+    Println {
+        expr: Spanned<Expr>,
+        body: Box<Spanned<Term>>,
     },
     Return(Expr),
 }

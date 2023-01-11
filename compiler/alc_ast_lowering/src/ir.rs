@@ -122,8 +122,16 @@ pub enum BinopKind {
 
 #[derive(Clone, Debug)]
 pub enum ExprKind {
-    Literal(u64),
-    Var(LocalIdx),
+    I8Literal(i8),
+    I16Literal(i16),
+    I32Literal(i32),
+    I64Literal(i64),
+    ArrayLiteral {
+        element_ty: Ty,
+        elements: Vec<ExprKind>,
+    },
+    StringLiteral(String),
+    Var(LocalIdx, Vec<FieldIdx>),
     Unop {
         kind: UnopKind,
         operand: LocalIdx,
@@ -146,6 +154,39 @@ pub enum ExprKind {
         ty: Ty,
         fields: IdxVec<FieldIdx, LocalIdx>,
     },
+    Socket {
+        domain: LocalIdx,
+        ty: LocalIdx,
+        protocol: LocalIdx,
+    },
+    Bind {
+        socket_file_descriptor: LocalIdx,
+        address: LocalIdx,
+        address_length: LocalIdx,
+    },
+    Listen {
+        socket_file_descriptor: LocalIdx,
+        backlog: LocalIdx,
+    },
+    Accept {
+        socket_file_descriptor: LocalIdx,
+    },
+    Recv {
+        socket_file_descriptor: LocalIdx,
+        buffer: LocalIdx,
+        buffer_length: LocalIdx,
+        flags: LocalIdx,
+    },
+    Send {
+        socket_file_descriptor: LocalIdx,
+        buffer: LocalIdx,
+        buffer_length: LocalIdx,
+        content: LocalIdx,
+        flags: LocalIdx,
+    },
+    Close {
+        socket_file_descriptor: LocalIdx,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -157,7 +198,15 @@ pub struct Expr {
 
 #[derive(Clone, Debug)]
 pub enum PatternKind {
-    Literal(u64),
+    I8Literal(i8),
+    I16Literal(i16),
+    I32Literal(i32),
+    I64Literal(i64),
+    ArrayLiteral {
+        element_ty: Ty,
+        elements: Vec<ExprKind>,
+    },
+    StringLiteral(String),
     Ident(LocalIdx),
     Variant {
         ty: Ty,
@@ -183,6 +232,9 @@ pub enum InstructionKind {
         binding: LocalIdx,
         ty: Option<Ty>,
         expr: Expr,
+    },
+    Println {
+        idx: LocalIdx,
     },
     Mark(LocalIdx, Ty),
     Unmark(LocalIdx, Ty),

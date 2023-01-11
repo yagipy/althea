@@ -1,0 +1,10 @@
+struct Foo {
+    bar: i32,
+}
+
+func main() i32 {
+    let foo = Foo { bar: 42 }
+    match foo {
+        Foo { bar: bar } => bar,
+    }
+}

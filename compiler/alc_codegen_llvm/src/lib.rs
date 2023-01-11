@@ -3,23 +3,37 @@ mod ctx;
 extern crate core;
 
 use crate::ctx::CodegenLLVMCtx;
-use alc_ast_lowering::{idx::Idx, ir, ty};
+use alc_ast_lowering::{idx::Idx, ir, ir::ExprKind, ty, ty::Array};
 use alc_command_option::CommandOptions;
 use alc_diagnostic::{Diagnostic, FileId, Label, Result, Span};
 use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
+    targets::{CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple},
     types::{AnyType, AnyTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    values::{BasicValueEnum, FunctionValue, IntValue, PointerValue},
+    values::{ArrayValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, PointerValue, VectorValue},
     AddressSpace,
+    OptimizationLevel,
 };
 use log::debug;
-use std::path::Path;
-use inkwell::values::BasicValue;
+use std::path::{Path, PathBuf};
 
 const ALC_FREE: &str = "alc_free";
 const ALC_RESET: &str = "alc_reset";
+const PRINTF: &str = "printf";
+const SOCKET: &str = "socket";
+const BIND: &str = "bind";
+const LISTEN: &str = "listen";
+const ACCEPT: &str = "accept";
+const RECV: &str = "recv";
+const SEND: &str = "send";
+const CLOSE: &str = "close";
+const SNPRINTF: &str = "snprintf";
+const STRLEN: &str = "strlen";
+const HTONS: &str = "htons";
+const MALLOC: &str = "malloc";
+const FREE: &str = "free";
 
 pub fn generate<'a>(
     command_options: &'a CommandOptions,
@@ -62,7 +76,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         };
         ctx.bind_reserved_functions();
         for def in ir.defs.values() {
-            ctx.bind_fn_def(def);
+            ctx.bind_def(def);
         }
         for def in ir.defs.values() {
             let compiled_def = ctx.compile_def(def)?;
@@ -71,25 +85,28 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 compiled_def.verify(true);
             }
         }
+        debug!("{}", module.print_to_string().to_string());
         module.verify().map_err(|err| {
             Diagnostic::new_bug(
                 "LLVM IR could not be verified",
                 Label::new(file_id, Span::dummy(), &format!("{}", err)),
             )
         })?;
-        debug!("{}", module.print_to_string().to_string());
-        ctx.write_to_ll_file(&ctx.command_options.out)
+        ctx.write_to_ll_file(&ctx.command_options.out)?;
+        ctx.write_to_asm_file(&ctx.command_options.out)?;
+        let obj_file = ctx.write_to_obj_file(&ctx.command_options.out)?;
+        ctx.execute_linker(obj_file)
     }
 
-    fn bind_fn_def(&self, def: &ir::Def) -> FunctionValue<'ctx> {
+    fn bind_def(&self, def: &ir::Def) -> FunctionValue<'ctx> {
         let fn_ty = self.compile_ty(def.ty).into_function_type();
         self.module.add_function(&def.name, fn_ty, None)
     }
 
     fn bind_reserved_functions(&self) {
         self.module.add_function(
-            ALC_FREE,
-            self.context.void_type().fn_type(
+            PRINTF,
+            self.context.i32_type().fn_type(
                 &[self
                     .context
                     .i8_type()
@@ -100,19 +117,187 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             ),
             None,
         );
+        self.module.add_function(
+            SOCKET,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            BIND,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .struct_type(
+                            &[
+                                self.context.i16_type().as_basic_type_enum(),
+                                self.context.i8_type().array_type(14).as_basic_type_enum(),
+                            ],
+                            false,
+                        )
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            LISTEN,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            ACCEPT,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .struct_type(
+                            &[
+                                self.context.i16_type().as_basic_type_enum(),
+                                self.context.i8_type().array_type(14).as_basic_type_enum(),
+                            ],
+                            false,
+                        )
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context
+                        .i32_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            RECV,
+            self.context.i64_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context.i64_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            SEND,
+            self.context.i64_type().fn_type(
+                &[
+                    self.context.i32_type().as_basic_type_enum().into(),
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context.i64_type().as_basic_type_enum().into(),
+                    self.context.i32_type().as_basic_type_enum().into(),
+                ],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            CLOSE,
+            self.context
+                .i32_type()
+                .fn_type(&[self.context.i32_type().as_basic_type_enum().into()], false),
+            None,
+        );
+        self.module.add_function(
+            SNPRINTF,
+            self.context.i32_type().fn_type(
+                &[
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                    self.context.i64_type().as_basic_type_enum().into(),
+                    self.context
+                        .i8_type()
+                        .ptr_type(AddressSpace::Generic)
+                        .as_basic_type_enum()
+                        .into(),
+                ],
+                true,
+            ),
+            None,
+        );
+        self.module.add_function(
+            STRLEN,
+            self.context.i64_type().fn_type(
+                &[self
+                    .context
+                    .i8_type()
+                    .ptr_type(AddressSpace::Generic)
+                    .as_basic_type_enum()
+                    .into()],
+                false,
+            ),
+            None,
+        );
+        self.module.add_function(
+            HTONS,
+            self.context
+                .i16_type()
+                .fn_type(&[self.context.i16_type().as_basic_type_enum().into()], false),
+            None,
+        );
+        self.module.add_function(
+            MALLOC,
+            self.context
+                .i8_type()
+                .ptr_type(AddressSpace::Generic)
+                .fn_type(&[self.context.i64_type().as_basic_type_enum().into()], false),
+            None,
+        );
+        self.module.add_function(
+            FREE,
+            self.context.void_type().fn_type(
+                &[self.context.i8_type().ptr_type(AddressSpace::Generic).into()],
+                false,
+            ),
+            None,
+        );
     }
 
     fn lookup_def(&self, def: ir::DefIdx, span: Span) -> Result<FunctionValue<'ctx>> {
         let name = &self.ir.defs.get(def).unwrap().name;
         self.module.get_function(name).ok_or_else(|| {
-            Diagnostic::new_bug(
+            Box::from(Diagnostic::new_bug(
                 "attempt to reference unregistered def",
                 Label::new(
                     self.file_id,
                     span,
                     &format!("{} is not listed in the LLVM module", name),
                 ),
-            )
+            ))
         })
     }
 
@@ -135,24 +320,96 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         );
     }
 
+    #[allow(clippy::match_single_binding)]
     fn build_alloc(&self, ty: ty::Ty, name: &str, span: Span) -> Result<PointerValue<'ctx>> {
         let ty = self.compile_basic_ty_unboxed(ty);
         match self.command_options.gc {
             // TODO: GC
             _ => self.builder.build_malloc(ty, name).map_err(|err| {
-                Diagnostic::new_bug("failed to build malloc call", Label::new(self.file_id, span, err))
+                Box::from(Diagnostic::new_bug(
+                    "failed to build malloc call",
+                    Label::new(self.file_id, span, err),
+                ))
             }),
         }
     }
 
     #[inline]
-    fn compile_literal(&self, literal: u64) -> IntValue<'ctx> {
-        self.context.i64_type().const_int(literal, false)
+    fn compile_i8_literal(&self, literal: i8) -> IntValue<'ctx> {
+        self.context
+            .i8_type()
+            .const_int(literal as u64, false)
+            .const_neg()
+    }
+
+    #[inline]
+    fn compile_i16_literal(&self, literal: i16) -> IntValue<'ctx> {
+        self.context.i16_type().const_int(literal as u64, false)
+    }
+
+    #[inline]
+    fn compile_i32_literal(&self, literal: i32) -> IntValue<'ctx> {
+        self.context.i32_type().const_int(literal as u64, false)
+    }
+
+    #[inline]
+    fn compile_i64_literal(&self, literal: i64) -> IntValue<'ctx> {
+        self.context.i64_type().const_int(literal as u64, false)
+    }
+
+    #[inline]
+    fn compile_array_literal(&self, element_ty: ty::Ty, elements: Vec<ExprKind>) -> ArrayValue<'ctx> {
+        match &*self.ty_sess.ty_kind(element_ty) {
+            ty::TyKind::I8 => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    if let ExprKind::I8Literal(literal) = element {
+                        values.push(self.compile_i8_literal(literal))
+                    }
+                }
+                self.context.i8_type().const_array(&values)
+            }
+            ty::TyKind::I16 => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    if let ExprKind::I16Literal(literal) = element {
+                        values.push(self.compile_i16_literal(literal))
+                    }
+                }
+                self.context.i16_type().const_array(&values)
+            }
+            ty::TyKind::I32 => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    if let ExprKind::I32Literal(literal) = element {
+                        values.push(self.compile_i32_literal(literal))
+                    }
+                }
+                self.context.i32_type().const_array(&values)
+            }
+            ty::TyKind::I64 => {
+                let mut values = Vec::with_capacity(elements.len());
+                for element in elements {
+                    if let ExprKind::I64Literal(literal) = element {
+                        values.push(self.compile_i64_literal(literal))
+                    }
+                }
+                self.context.i64_type().const_array(&values)
+            }
+            _ => {
+                panic!("unimplemented array literal type");
+            }
+        }
+    }
+
+    #[inline]
+    fn compile_string_literal(&self, literal: &str) -> VectorValue<'ctx> {
+        self.context.const_string(literal.as_bytes(), true)
     }
 
     #[inline]
     fn compile_variant_idx(&self, idx: ty::VariantIdx) -> IntValue<'ctx> {
-        self.compile_literal(idx.index() as u64)
+        self.compile_i32_literal(idx.index() as i32)
     }
 
     #[inline]
@@ -169,7 +426,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     #[inline]
     unsafe fn gep(&self, ptr: PointerValue<'ctx>, idx: u64, name: &str) -> PointerValue<'ctx> {
-        self.builder.build_gep(
+        self.builder.build_in_bounds_gep(
             ptr,
             &[
                 self.context.i32_type().const_int(0, false),
@@ -195,16 +452,16 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         }
     }
 
-    // fn read_mark(&self, ptr: PointerValue<'ctx>, ty: ty::Ty) -> BasicValueEnum<'ctx> {
-    //     self.builder.build_load(self.mark_ptr(ptr, ty), "mark")
-    // }
+    fn read_mark(&self, ptr: PointerValue<'ctx>, ty: ty::Ty) -> BasicValueEnum<'ctx> {
+        self.builder.build_load(self.mark_ptr(ptr, ty), "mark")
+    }
 
     fn write_mark(&self, ptr: PointerValue<'ctx>, ty: ty::Ty, mark: bool) {
         self.builder.build_store(
             self.mark_ptr(ptr, ty),
             self.context
                 .custom_width_int_type(1)
-                .const_int(if mark { 1 } else { 0 }, false),
+                .const_int(u64::from(mark), false),
         );
     }
 
@@ -239,7 +496,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let variant_ty = self.ty_sess.ty_kind(ty).variant_ty(idx).unwrap();
         let body_ptr = self.enum_body_ptr(ptr, ty);
-        if variant_ty != self.ty_sess.make_u64() {
+        if variant_ty != self.ty_sess.make_i64() {
             let uncast_body = self.builder.build_load(body_ptr, "body");
             self.builder
                 .build_int_to_ptr(
@@ -270,7 +527,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     ) {
         let variant_ty = self.ty_sess.ty_kind(ty).variant_ty(idx).unwrap();
         let body_ptr = self.enum_body_ptr(ptr, ty);
-        let cast_body = if variant_ty != self.ty_sess.make_u64() {
+        let cast_body = if variant_ty != self.ty_sess.make_i64() {
             self.builder
                 .build_ptr_to_int(val.into_pointer_value(), self.context.i64_type(), "cast_body")
                 .into()
@@ -317,7 +574,13 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn compile_basic_ty_unboxed(&self, ty: ty::Ty) -> BasicTypeEnum<'ctx> {
         match &*self.ty_sess.ty_kind(ty) {
-            ty::TyKind::U64 => self.context.i64_type().into(),
+            ty::TyKind::I8 => self.context.i8_type().into(),
+            ty::TyKind::I16 => self.context.i16_type().into(),
+            ty::TyKind::I32 => self.context.i32_type().into(),
+            ty::TyKind::I64 => self.context.i64_type().into(),
+            ty::TyKind::Array(Array { element_ty: _, size }) => {
+                self.context.i8_type().array_type(*size as u32).into()
+            }
             ty::TyKind::Enum(_) => {
                 let field_tys = vec![self.context.i64_type().into(), self.context.i64_type().into()];
                 // TODO: GC
@@ -337,7 +600,12 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn compile_basic_ty(&self, ty: ty::Ty) -> BasicTypeEnum<'ctx> {
         let compiled_ty_unboxed = self.compile_basic_ty_unboxed(ty);
-        if self.ty_sess.ty_kind(ty).is_u64() {
+        if self.ty_sess.ty_kind(ty).is_i64()
+            || self.ty_sess.ty_kind(ty).is_i32()
+            || self.ty_sess.ty_kind(ty).is_i16()
+            || self.ty_sess.ty_kind(ty).is_i8()
+            || self.ty_sess.ty_kind(ty).is_array()
+        {
             compiled_ty_unboxed
         } else {
             compiled_ty_unboxed.ptr_type(AddressSpace::Generic).into()
@@ -366,11 +634,131 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     }
 
     fn write_to_ll_file<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        self.module.print_to_file(path).map_err(|e| {
-            Diagnostic::new_error(
+        let mut output_path = PathBuf::from(path.as_ref());
+        output_path.set_extension("ll");
+
+        self.module.print_to_file(output_path).map_err(|e| {
+            Box::from(Diagnostic::new_error(
                 "failed to write LLVM IR to file",
                 Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
-            )
+            ))
         })
+    }
+
+    fn write_to_obj_file<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
+        let target_machine = self.get_target_machine()?;
+
+        let mut output_path = PathBuf::from(path.as_ref());
+        output_path.set_extension("o");
+
+        let compile_result = target_machine
+            .write_to_file(self.module, FileType::Object, output_path.as_path())
+            .map_err(|e| {
+                Diagnostic::new_error(
+                    "failed to write object file",
+                    Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
+                )
+            });
+
+        match compile_result {
+            Ok(_) => Ok(output_path),
+            Err(diagnostic) => Err(Box::from(diagnostic)),
+        }
+    }
+
+    fn write_to_asm_file<P: AsRef<Path>>(&self, path: P) -> Result<PathBuf> {
+        let target_machine = self.get_target_machine()?;
+
+        let mut output_path = PathBuf::from(path.as_ref());
+        output_path.set_extension("s");
+
+        let compile_result = target_machine
+            .write_to_file(self.module, FileType::Assembly, output_path.as_path())
+            .map_err(|e| {
+                Diagnostic::new_error(
+                    "failed to write assembly file",
+                    Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
+                )
+            });
+
+        match compile_result {
+            Ok(_) => Ok(output_path),
+            Err(diagnostic) => Err(Box::from(diagnostic)),
+        }
+    }
+
+    fn get_target_machine(&self) -> Result<TargetMachine> {
+        Target::initialize_native(&InitializationConfig::default()).unwrap();
+        let triple = match &self.command_options.triple {
+            Some(triple) => TargetTriple::create(triple.as_str()),
+            None => TargetMachine::get_default_triple(),
+        };
+        let target = match Target::from_triple(&triple) {
+            Ok(target) => target,
+            Err(e) => {
+                return Err(Box::from(Diagnostic::new_error(
+                    "failed to get target",
+                    Label::new(self.file_id, Span::dummy(), format!("{}", e)),
+                )))
+            }
+        };
+
+        let cpu = match &self.command_options.cpu_name {
+            Some(cpu) => cpu.to_string(),
+            None => TargetMachine::get_host_cpu_name().to_string(),
+        };
+        let features = match &self.command_options.cpu_features {
+            Some(features) => features.to_string(),
+            None => TargetMachine::get_host_cpu_features().to_string(),
+        };
+
+        let opt_level = OptimizationLevel::Default;
+        let reloc_mode = RelocMode::Default;
+        let code_model = CodeModel::Default;
+
+        target
+            .create_target_machine(
+                &triple,
+                cpu.as_str(),
+                features.as_str(),
+                opt_level,
+                reloc_mode,
+                code_model,
+            )
+            .ok_or_else(|| {
+                Box::from(Diagnostic::new_error(
+                    "failed to get target machine",
+                    Label::new(self.file_id, Span::dummy(), ""),
+                ))
+            })
+    }
+
+    fn execute_linker<P: AsRef<Path>>(&self, path: P) -> Result<()> {
+        let cc = std::env::var("CC").unwrap_or_else(|_| "gcc".into());
+        let extension = if cfg!(windows) { "exe" } else { "" };
+
+        let mut output_path = PathBuf::from(path.as_ref());
+        output_path.set_extension(extension);
+
+        let command_output = std::process::Command::new(cc)
+            .args(vec![
+                path.as_ref().as_os_str(),
+                std::ffi::OsStr::new("-o"),
+                output_path.as_os_str(),
+            ])
+            .output()
+            .unwrap();
+
+        let status = command_output.status.code().unwrap();
+        let stderr = String::from_utf8(command_output.stderr).unwrap();
+
+        if status != 0 {
+            return Err(Box::from(Diagnostic::new_error(
+                "failed to execute linker",
+                Label::new(self.file_id, Span::dummy(), stderr),
+            )));
+        }
+
+        Ok(())
     }
 }

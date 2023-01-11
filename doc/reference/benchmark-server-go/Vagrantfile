@@ -1,0 +1,16 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/focal64"
+  config.vm.network "forwarded_port", guest: 80, host: 80
+  config.vm.synced_folder "../../../../althea", "/root/althea"
+
+  config.vm.provision "shell", inline: <<-SHELL
+    sudo su - root
+    snap install go --classic
+    cd /root/althea/doc/reference/benchmark-server-go/app
+    go build -o /usr/local/bin/benchmark-server-go /root/althea/doc/reference/benchmark-server-go/app/main.go
+    benchmark-server-go
+  SHELL
+end

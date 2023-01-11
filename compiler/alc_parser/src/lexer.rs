@@ -19,7 +19,7 @@ impl<'a> Iterator for Lexer<'a> {
                 self.skip_whitespace();
                 return self.next();
             }
-            c if c.is_digit(10) => Token::new(Kind::U64Literal, &self.next_literal(c)),
+            c if c.is_ascii_digit() => Token::new(Kind::NumberLiteral, &self.next_literal(c)),
             c if c.is_alphabetic() || c == '_' => self.next_ident_or_keyword(c),
             '"' => self.next_string_literal()?,
             '!' => match self.nth_char(0) {
@@ -73,6 +73,8 @@ impl<'a> Iterator for Lexer<'a> {
             },
             '{' => Kind::LCurl.into(),
             '}' => Kind::RCurl.into(),
+            '[' => Kind::LSquare.into(),
+            ']' => Kind::RSquare.into(),
             ',' => Kind::Comma.into(),
             ';' => Kind::Semi.into(),
             ':' => match self.nth_char(0) {
@@ -93,15 +95,16 @@ impl<'a> Iterator for Lexer<'a> {
                 }
                 _ => Kind::Eq.into(),
             },
+            '.' => Kind::Dot.into(),
             c => {
-                return Some(Err(Diagnostic::new_error(
+                return Some(Err(Box::from(Diagnostic::new_error(
                     "found invalid token",
                     Label::new(
                         self.file_id,
                         lo..self.index(),
                         &format!("'{}' is not valid here", c),
                     ),
-                )))
+                ))))
             }
         };
         let hi = self.index();
@@ -146,7 +149,7 @@ impl<'a> Lexer<'a> {
         data.push(first);
         loop {
             match self.nth_char(0) {
-                c if c.is_digit(10) => {
+                c if c.is_ascii_digit() => {
                     data.push(c);
                     self.chars.next();
                 }
@@ -159,7 +162,7 @@ impl<'a> Lexer<'a> {
         let mut data = String::new();
         loop {
             match self.chars.next()? {
-                '"' => break Some(Token::new(Kind::String, &data)),
+                '"' => break Some(Token::new(Kind::StringLiteral, &data)),
                 c => {
                     data.push(c);
                 }
@@ -172,7 +175,7 @@ impl<'a> Lexer<'a> {
         data.push(first);
         loop {
             match self.nth_char(0) {
-                c if c.is_alphanumeric() || c == '_' || c == '.' => {
+                c if c.is_alphanumeric() || c == '_' => {
                     data.push(c);
                     self.chars.next();
                 }
@@ -187,11 +190,23 @@ impl<'a> Lexer<'a> {
             "func" => Kind::Func.into(),
             "struct" => Kind::Struct.into(),
             "enum" => Kind::Enum.into(),
-            "u64" => Kind::U64Ty.into(),
+            "i8" => Kind::I8Ty.into(),
+            "i16" => Kind::I16Ty.into(),
+            "i32" => Kind::I32Ty.into(),
+            "i64" => Kind::I64Ty.into(),
+            "string" => Kind::StringTy.into(),
             "env" if self.nth_char(0) == '!' => {
                 self.chars.next();
                 Kind::Env.into()
             }
+            "println" => Kind::Println.into(),
+            "socket" => Kind::Socket.into(),
+            "bind" => Kind::Bind.into(),
+            "listen" => Kind::Listen.into(),
+            "accept" => Kind::Accept.into(),
+            "recv" => Kind::Recv.into(),
+            "send" => Kind::Send.into(),
+            "close" => Kind::Close.into(),
             data => Token::new(Kind::Ident, data),
         }
     }

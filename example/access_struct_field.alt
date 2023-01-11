@@ -1,0 +1,12 @@
+struct Foo {
+    bar: i32,
+    test: i32,
+}
+
+func main() i32 {
+    let foo: Foo = Foo {
+        bar: 42,
+        test: 32,
+    }
+    foo.bar + foo.test
+}

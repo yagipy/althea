@@ -1,7 +1,11 @@
-use crate::{idx_vec::Indexable, ty};
+use crate::{
+    idx_vec::{Indexable, IndexableIndexMap},
+    ty,
+};
 use alc_command_option::CommandOptions;
 use alc_diagnostic::{Diagnostic, FileId, Label, Result, Span};
 use alc_parser::ast;
+use indexmap::IndexMap;
 use log::debug;
 use std::collections::HashMap;
 
@@ -10,22 +14,34 @@ pub struct TyLowering<'ast> {
     #[allow(unused)]
     command_options: &'ast CommandOptions,
     file_id: FileId,
-    pub ty_sess: ty::TySess,
-    pub u64_ty: ty::Ty,
-    pub tys: HashMap<&'ast ast::Ident, ty::Ty>,
-    pub variants: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::VariantIdx>>,
-    pub fields: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::FieldIdx>>,
+    ty_sess: ty::TySess,
+    i8_ty: ty::Ty,
+    i16_ty: ty::Ty,
+    i32_ty: ty::Ty,
+    i64_ty: ty::Ty,
+    string_ty: ty::Ty,
+    tys: HashMap<&'ast ast::Ident, ty::Ty>,
+    variants: HashMap<ty::Ty, HashMap<&'ast ast::Ident, ty::VariantIdx>>,
+    fields: HashMap<ty::Ty, IndexMap<&'ast ast::Ident, ty::FieldIdx>>,
 }
 
 impl<'ast> TyLowering<'ast> {
     pub fn new(command_options: &'ast CommandOptions, file_id: FileId) -> TyLowering<'ast> {
         let ty_sess = ty::TySess::new();
-        let u64_ty = ty_sess.make_u64();
+        let i8_ty = ty_sess.make_i8();
+        let i16_ty = ty_sess.make_i16();
+        let i32_ty = ty_sess.make_i32();
+        let i64_ty = ty_sess.make_i64();
+        let string_ty = ty_sess.make_string();
         TyLowering {
             command_options,
             file_id,
             ty_sess,
-            u64_ty,
+            i8_ty,
+            i16_ty,
+            i32_ty,
+            i64_ty,
+            string_ty,
             tys: HashMap::new(),
             variants: HashMap::new(),
             fields: HashMap::new(),
@@ -62,14 +78,14 @@ impl<'ast> TyLowering<'ast> {
                             .insert(&*binding.binder, self.lookup_binding(binding)?)
                             .is_some()
                         {
-                            return Err(Diagnostic::new_error(
+                            return Err(Box::from(Diagnostic::new_error(
                                 "attempted to rebind enum variant",
                                 Label::new(
                                     file_id,
                                     binding.span(),
                                     "a variant with this name already exists",
                                 ),
-                            ));
+                            )));
                         }
                     }
                     let (variants, index) = variant_tys.reindex::<ty::VariantIdx>();
@@ -93,16 +109,16 @@ impl<'ast> TyLowering<'ast> {
                         })?;
                 }
                 ast::Item::Struct(def) => {
-                    let mut field_tys = HashMap::new();
+                    let mut field_tys = IndexMap::new();
                     for binding in def.fields.iter() {
                         if field_tys
                             .insert(&*binding.binder, self.lookup_binding(binding)?)
                             .is_some()
                         {
-                            return Err(Diagnostic::new_error(
+                            return Err(Box::from(Diagnostic::new_error(
                                 "attempted to rebind field type",
                                 Label::new(file_id, binding.span(), "a field with this name already exists"),
-                            ));
+                            )));
                         }
                     }
                     let (fields, index) = field_tys.reindex::<ty::FieldIdx>();
@@ -133,10 +149,10 @@ impl<'ast> TyLowering<'ast> {
 
     pub(super) fn bind(&mut self, ident: &'ast ast::Ident, span: Span, ty: ty::Ty) -> Result<()> {
         if self.tys.get(ident).is_some() {
-            return Err(Diagnostic::new_error(
+            return Err(Box::from(Diagnostic::new_error(
                 "previously bound type name",
                 Label::new(self.file_id, span, &format!("attempt to rebind '{}' here", ident)),
-            ));
+            )));
         }
         debug!("bind '{}' as {:?}", ident, ty);
         self.tys.insert(ident, ty);
@@ -147,16 +163,23 @@ impl<'ast> TyLowering<'ast> {
         if let Some(ty) = self.tys.get(ident) {
             return Ok(*ty);
         }
-        Err(Diagnostic::new_error(
+        Err(Box::from(Diagnostic::new_error(
             "reference to unbound type name",
             Label::new(self.file_id, span, &format!("'{}' is not bound as a type", ident)),
-        ))
+        )))
     }
 
     #[inline]
     pub fn lookup_ty(&self, ty: &'ast ast::Ty, span: Span) -> Result<ty::Ty> {
         match ty {
-            ast::Ty::U64 => Ok(self.u64_ty),
+            ast::Ty::I8 => Ok(self.i8_ty),
+            ast::Ty::I16 => Ok(self.i16_ty),
+            ast::Ty::I32 => Ok(self.i32_ty),
+            ast::Ty::I64 => Ok(self.i64_ty),
+            ast::Ty::String => Ok(self.string_ty),
+            ast::Ty::Array(element_ty, size) => Ok(self
+                .ty_sess
+                .make_array(self.lookup_ty(element_ty, span)?, *size as i32)),
             ast::Ty::TyName(ident) => self.lookup(ident, span),
         }
     }
@@ -176,24 +199,24 @@ impl<'ast> TyLowering<'ast> {
             if let Some(variant) = variants.get(variant_name) {
                 Ok(*variant)
             } else {
-                Err(Diagnostic::new_error(
+                Err(Box::from(Diagnostic::new_error(
                     "type usage error",
                     Label::new(
                         self.file_id,
                         span,
                         &format!("'{}' is not a variant of the type given", variant_name),
                     ),
-                ))
+                )))
             }
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "type usage error",
                 Label::new(
                     self.file_id,
                     span,
                     "can't reference variants of a type that is not an enum",
                 ),
-            ))
+            )))
         }
     }
 
@@ -202,24 +225,24 @@ impl<'ast> TyLowering<'ast> {
             if let Some(field) = fields.get(field_name) {
                 Ok(*field)
             } else {
-                Err(Diagnostic::new_error(
+                Err(Box::from(Diagnostic::new_error(
                     "type usage error",
                     Label::new(
                         self.file_id,
                         span,
                         &format!("'{}' is not a field of the type given", field_name),
                     ),
-                ))
+                )))
             }
         } else {
-            Err(Diagnostic::new_error(
+            Err(Box::from(Diagnostic::new_error(
                 "type usage error",
                 Label::new(
                     self.file_id,
                     span,
                     "can't reference fields of a type that is not a struct",
                 ),
-            ))
+            )))
         }
     }
 

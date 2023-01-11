@@ -22,7 +22,11 @@ pub enum Kind {
     Func,
     Struct,
     Enum,
-    U64Ty,
+    I8Ty,
+    I16Ty,
+    I32Ty,
+    I64Ty,
+    StringTy,
     Eq,
     MatchArrow,
     Comma,
@@ -35,9 +39,21 @@ pub enum Kind {
     RAngle,
     LCurl,
     RCurl,
+    LSquare,
+    RSquare,
+    NumberLiteral,
     U64Literal,
+    StringLiteral,
     Env,
-    String,
+    Dot,
+    Println,
+    Socket,
+    Bind,
+    Listen,
+    Accept,
+    Recv,
+    Send,
+    Close,
 }
 
 #[derive(Clone, Debug)]
@@ -63,6 +79,6 @@ impl Token {
     }
 
     pub fn value(&self) -> Option<&str> {
-        self.1.as_ref().map(|x| &**x)
+        self.1.as_deref()
     }
 }

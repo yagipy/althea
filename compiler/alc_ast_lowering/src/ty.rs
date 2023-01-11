@@ -87,13 +87,26 @@ impl Idx for ParamIdx {
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum TyKind {
-    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    String,
+    Array(Array),
     Enum(Enum),
     Struct(Struct),
     Fn(Prototype),
 }
 
 impl TyKind {
+    #[inline]
+    pub fn as_array(&self) -> Option<&Array> {
+        match self {
+            TyKind::Array(ref desc) => Some(desc),
+            _ => None,
+        }
+    }
+
     #[inline]
     pub fn as_enum(&self) -> Option<&Enum> {
         match self {
@@ -176,28 +189,50 @@ impl TyKind {
     }
 
     #[inline]
-    pub fn is_u64(&self) -> bool {
-        match self {
-            TyKind::U64 => true,
-            _ => false,
-        }
+    pub fn is_i8(&self) -> bool {
+        matches!(self, TyKind::I8)
+    }
+
+    #[inline]
+    pub fn is_i16(&self) -> bool {
+        matches!(self, TyKind::I16)
+    }
+
+    #[inline]
+    pub fn is_i32(&self) -> bool {
+        matches!(self, TyKind::I32)
+    }
+
+    #[inline]
+    pub fn is_i64(&self) -> bool {
+        matches!(self, TyKind::I64)
+    }
+
+    #[inline]
+    pub fn is_string(&self) -> bool {
+        matches!(self, TyKind::String)
+    }
+
+    #[inline]
+    pub fn is_array(&self) -> bool {
+        matches!(self, TyKind::Array(_))
     }
 
     #[inline]
     pub fn is_enum(&self) -> bool {
-        match self {
-            TyKind::Enum(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Enum(_))
     }
 
     #[inline]
     pub fn is_struct(&self) -> bool {
-        match self {
-            TyKind::Struct(_) => true,
-            _ => false,
-        }
+        matches!(self, TyKind::Struct(_))
     }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Array {
+    pub element_ty: Ty,
+    pub size: i32,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -232,8 +267,6 @@ impl TySess {
         self.tys.borrow_mut().push(kind)
     }
 
-    // if the type is already in the uniqued map, return it
-    // otherwise, bind the type and insert it into the uniqued map
     fn make_unique(&self, kind: TyKind) -> Ty {
         let mut uniqued = self.uniqued.borrow_mut();
         if let Some(ty) = uniqued.get(&kind).copied() {
@@ -244,8 +277,28 @@ impl TySess {
         ty
     }
 
-    pub fn make_u64(&self) -> Ty {
-        self.make_unique(TyKind::U64)
+    pub fn make_i8(&self) -> Ty {
+        self.make_unique(TyKind::I8)
+    }
+
+    pub fn make_i16(&self) -> Ty {
+        self.make_unique(TyKind::I16)
+    }
+
+    pub fn make_i32(&self) -> Ty {
+        self.make_unique(TyKind::I32)
+    }
+
+    pub fn make_i64(&self) -> Ty {
+        self.make_unique(TyKind::I64)
+    }
+
+    pub fn make_string(&self) -> Ty {
+        self.make_unique(TyKind::String)
+    }
+
+    pub fn make_array(&self, element_ty: Ty, size: i32) -> Ty {
+        self.make_unique(TyKind::Array(Array { element_ty, size }))
     }
 
     pub fn make_fn(&self, return_ty: Ty, params: IdxVec<ParamIdx, Ty>) -> Ty {
@@ -298,7 +351,7 @@ impl<'a> Deref for TyKindRef<'a> {
     type Target = TyKind;
 
     fn deref(&self) -> &Self::Target {
-        &self.guard.get(self.ty).unwrap()
+        self.guard.get(self.ty).unwrap()
     }
 }
 

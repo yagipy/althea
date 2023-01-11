@@ -1,0 +1,13 @@
+[Unit]
+Description=test server.
+After=network.target
+Requires=benchmark-server.socket
+
+[Service]
+ExecStart=/usr/local/bin/benchmark-server
+#User=root
+#Group=root
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

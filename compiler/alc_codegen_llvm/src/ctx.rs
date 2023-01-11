@@ -1,12 +1,14 @@
-use crate::CodegenLLVM;
+use crate::{CodegenLLVM, ACCEPT, BIND, CLOSE, LISTEN, PRINTF, RECV, SEND, SNPRINTF, SOCKET, STRLEN};
 use alc_ast_lowering::{ir, ty};
+use alc_command_option::Gc;
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
-    values::{BasicValueEnum, FunctionValue, IntValue},
+    types::BasicType,
+    values::{ArrayValue, BasicValue, BasicValueEnum, FunctionValue, IntValue, VectorValue},
+    AddressSpace,
     IntPredicate,
 };
 use std::{collections::HashMap, ops::Deref};
-use alc_command_option::Gc;
 
 macro_rules! local {
     ( $idx:expr ) => {{
@@ -19,6 +21,8 @@ macro_rules! local {
 enum MatchCase<'ctx> {
     Wild,
     Record,
+    StringLiteral(VectorValue<'ctx>),
+    ArrayLiteral(ArrayValue<'ctx>),
     Literal(IntValue<'ctx>),
     Variant(ty::Ty, IntValue<'ctx>),
 }
@@ -80,6 +84,17 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 self.bind(*binding, compiled_expr);
                 // println!("----------after bind----------");
                 // println!("bindings: {:#?}", self.bindings);
+            }
+            ir::InstructionKind::Println { idx } => {
+                let value = self.lookup(*idx)?.into_vector_value();
+                let const_ref = self.builder.build_alloca(value.get_type(), "printf_tmp");
+                self.builder.build_store(const_ref, value);
+                let ptr = unsafe { self.sess.gep(const_ref, 0, "printf_tmp") };
+                self.builder.build_call(
+                    self.module.get_function(PRINTF).unwrap(),
+                    &[ptr.as_basic_value_enum().into()],
+                    "printf",
+                );
             }
             ir::InstructionKind::Mark(idx, ty) => {
                 // %a.mark := 1;
@@ -152,6 +167,16 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                             cases.push((case, block));
                             self.compile_block(&arm.target)?;
                         }
+                        MatchCase::StringLiteral(_) => {
+                            // TODO: support
+                            // cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
+                        MatchCase::ArrayLiteral(_) => {
+                            // TODO: support
+                            // cases.push((case, block));
+                            self.compile_block(&arm.target)?;
+                        }
                         MatchCase::Variant(ty, case) => {
                             source_ty = Some(ty);
                             cases.push((case, block));
@@ -174,7 +199,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 } else {
                     source
                 }
-                    .into_int_value();
+                .into_int_value();
                 self.builder.build_switch(source, else_block, cases.as_slice());
             }
         }
@@ -190,14 +215,14 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
             // TODO: インクリメント
             Ok(*value)
         } else {
-            Err(Diagnostic::new_bug(
+            Err(Box::from(Diagnostic::new_bug(
                 "reference to unbound local index",
                 Label::new(
                     self.file_id,
                     idx.span(),
                     &format!("'{:?}' not bound in this scope", idx),
                 ),
-            ))
+            )))
         }
     }
 
@@ -258,7 +283,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                     local!(idx),
                 );
                 self.builder
-                    .build_int_z_extend::<IntValue>(comparison, self.context.i64_type(), "cast_tmp")
+                    .build_int_z_extend::<IntValue>(comparison, self.context.i32_type(), "cast_tmp")
                     .into()
             }
         })
@@ -266,8 +291,15 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
 
     fn compile_expr(&mut self, expr: &ir::Expr) -> Result<BasicValueEnum<'ctx>> {
         match &expr.kind {
-            ir::ExprKind::Literal(literal) => Ok(self.context.i64_type().const_int(*literal, false).into()),
-            ir::ExprKind::Var(idx) => self.lookup(*idx),
+            ir::ExprKind::I8Literal(literal) => Ok(self.compile_i8_literal(*literal).into()),
+            ir::ExprKind::I16Literal(literal) => Ok(self.compile_i16_literal(*literal).into()),
+            ir::ExprKind::I32Literal(literal) => Ok(self.compile_i32_literal(*literal).into()),
+            ir::ExprKind::I64Literal(literal) => Ok(self.compile_i64_literal(*literal).into()),
+            ir::ExprKind::ArrayLiteral { element_ty, elements } => {
+                Ok(self.compile_array_literal(*element_ty, elements.to_vec()).into())
+            }
+            ir::ExprKind::StringLiteral(literal) => Ok(self.compile_string_literal(literal).into()),
+            ir::ExprKind::Var(local_idx, _) => self.lookup(*local_idx),
             ir::ExprKind::Unop { kind, operand } => self.compile_unop(expr.local_idx, *kind, *operand),
             ir::ExprKind::Binop { kind, left, right } => {
                 self.compile_binop(expr.local_idx, *kind, *left, *right)
@@ -283,10 +315,10 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                     .try_as_basic_value()
                     .left()
                     .ok_or_else(|| {
-                        Diagnostic::new_bug(
+                        Box::from(Diagnostic::new_bug(
                             "attempted to return non-basic value from function call",
                             Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
-                        )
+                        ))
                     })
             }
             ir::ExprKind::Variant {
@@ -308,6 +340,248 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 // TODO: GC
                 Ok(record.into())
             }
+            ir::ExprKind::Socket { domain, ty, protocol } => {
+                let domain = self.lookup(*domain)?.into_int_value();
+                let ty = self.lookup(*ty)?.into_int_value();
+                let protocol = self.lookup(*protocol)?.into_int_value();
+                let socket = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(SOCKET).unwrap(),
+                        &[domain.into(), ty.into(), protocol.into()],
+                        "socket",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(socket)
+            }
+            ir::ExprKind::Bind {
+                socket_file_descriptor,
+                address,
+                address_length,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let address = self.lookup(*address)?.into_pointer_value();
+                let address_length = self.lookup(*address_length)?.into_int_value();
+                let casted_address = self.builder.build_bitcast(
+                    address,
+                    self.context
+                        .struct_type(
+                            &[
+                                self.context.i16_type().into(),
+                                self.context.i8_type().array_type(14).into(),
+                            ],
+                            false,
+                        )
+                        .ptr_type(AddressSpace::Generic),
+                    "cast_tmp",
+                );
+                let bind = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(BIND).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            casted_address.into(),
+                            address_length.into(),
+                        ],
+                        "bind",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(bind)
+            }
+            ir::ExprKind::Listen {
+                socket_file_descriptor,
+                backlog,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let backlog = self.lookup(*backlog)?.into_int_value();
+                let listen = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(LISTEN).unwrap(),
+                        &[socket_file_descriptor.into(), backlog.into()],
+                        "listen",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(listen)
+            }
+            ir::ExprKind::Accept {
+                socket_file_descriptor,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let accept = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(ACCEPT).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            self.context
+                                .struct_type(
+                                    &[
+                                        self.context.i16_type().as_basic_type_enum(),
+                                        self.context.i8_type().array_type(14).as_basic_type_enum(),
+                                    ],
+                                    false,
+                                )
+                                .ptr_type(AddressSpace::Generic)
+                                .const_zero()
+                                .into(),
+                            self.context
+                                .i32_type()
+                                .ptr_type(AddressSpace::Generic)
+                                .const_zero()
+                                .into(),
+                        ],
+                        "accept",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(accept)
+            }
+            ir::ExprKind::Recv {
+                socket_file_descriptor,
+                buffer,
+                buffer_length,
+                flags,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let buffer = self.lookup(*buffer)?.into_array_value();
+                let buffer_length = self.lookup(*buffer_length)?.into_int_value();
+                let flags = self.lookup(*flags)?.into_int_value();
+                let allocated_buffer = self.builder.build_alloca(buffer.get_type(), "allocated_buffer");
+                let buffer_ptr = unsafe { self.gep(allocated_buffer, 0, "buffer_ptr") };
+                let recv = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(RECV).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            buffer_ptr.into(),
+                            buffer_length.into(),
+                            flags.into(),
+                        ],
+                        "recv",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(recv)
+            }
+            ir::ExprKind::Send {
+                socket_file_descriptor,
+                buffer,
+                buffer_length,
+                content,
+                flags,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let buffer = self.lookup(*buffer)?.into_array_value();
+                let buffer_length = self.lookup(*buffer_length)?.into_int_value();
+                let content = self.lookup(*content)?.into_vector_value();
+                let flags = self.lookup(*flags)?.into_int_value();
+
+                let allocated_buffer = self.builder.build_alloca(buffer.get_type(), "allocated_buffer");
+                let buffer_ptr = unsafe { self.gep(allocated_buffer, 0, "buffer_ptr") };
+                let allocated_content = self.builder.build_alloca(content.get_type(), "allocated_content");
+                self.builder.build_store(allocated_content, content);
+                let content_ptr = unsafe { self.gep(allocated_content, 0, "content_ptr") };
+
+                self.builder.build_call(
+                    self.module.get_function(SNPRINTF).unwrap(),
+                    &[buffer_ptr.into(), buffer_length.into(), content_ptr.into()],
+                    "snprintf",
+                );
+                let buffer_ptr_with_content = unsafe { self.gep(allocated_buffer, 0, "buffer_ptr") };
+                let content_length = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(STRLEN).unwrap(),
+                        &[buffer_ptr_with_content.into()],
+                        "content_length",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                let send = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(SEND).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            buffer_ptr_with_content.into(),
+                            content_length.into(),
+                            flags.into(),
+                        ],
+                        "send",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(send)
+            }
+            ir::ExprKind::Close {
+                socket_file_descriptor,
+            } => {
+                let socket_file_descriptor = self.lookup(*socket_file_descriptor)?.into_int_value();
+                let close = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(CLOSE).unwrap(),
+                        &[socket_file_descriptor.into()],
+                        "close",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(close)
+            }
         }
     }
 
@@ -317,7 +591,16 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
         pattern: &ir::PatternKind,
     ) -> MatchCase<'ctx> {
         match pattern {
-            ir::PatternKind::Literal(literal) => MatchCase::Literal(self.compile_literal(*literal)),
+            ir::PatternKind::I8Literal(literal) => MatchCase::Literal(self.compile_i8_literal(*literal)),
+            ir::PatternKind::I16Literal(literal) => MatchCase::Literal(self.compile_i16_literal(*literal)),
+            ir::PatternKind::I32Literal(literal) => MatchCase::Literal(self.compile_i32_literal(*literal)),
+            ir::PatternKind::I64Literal(literal) => MatchCase::Literal(self.compile_i64_literal(*literal)),
+            ir::PatternKind::ArrayLiteral { element_ty, elements } => {
+                MatchCase::ArrayLiteral(self.compile_array_literal(*element_ty, elements.to_owned()))
+            }
+            ir::PatternKind::StringLiteral(literal) => {
+                MatchCase::StringLiteral(self.compile_string_literal(literal))
+            }
             ir::PatternKind::Ident(binding) => {
                 self.bind(*binding, source);
                 MatchCase::Wild
