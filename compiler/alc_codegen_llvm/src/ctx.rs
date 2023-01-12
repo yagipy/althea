@@ -47,7 +47,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 Label::new(
                     self.file_id,
                     idx.span(),
-                    &format!("'{:?}' not bound in this scope", idx),
+                    format!("'{:?}' not bound in this scope", idx),
                 ),
             )))
         }

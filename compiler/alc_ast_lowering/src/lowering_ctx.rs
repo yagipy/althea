@@ -537,7 +537,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
         Ok(ir::Arm {
             span: pattern_span.merge(body_span),
             pattern,
-            target: Box::new(ctx.lower_term_to_block(body, body_span)?),
+            target: ctx.lower_term_to_block(body, body_span)?,
         })
     }
 
@@ -589,14 +589,12 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                         ir::Arm {
                             span: otherwise.span(),
                             pattern: ir::PatternKind::I32Literal(0),
-                            target: Box::new(
-                                self.mk_child().lower_term_to_block(otherwise, otherwise.span())?,
-                            ),
+                            target: self.mk_child().lower_term_to_block(otherwise, otherwise.span())?,
                         },
                         ir::Arm {
                             span: then.span(),
                             pattern: ir::PatternKind::Ident(self.local_idxr.next().with_span(source.span())),
-                            target: Box::new(self.mk_child().lower_term_to_block(then, then.span())?),
+                            target: self.mk_child().lower_term_to_block(then, then.span())?,
                         },
                     ],
                 })

@@ -64,7 +64,7 @@ impl<'ast> Lowering<'ast> {
                 Label::new(
                     self.file_id,
                     span,
-                    &format!("'{}' is not bound as a function symbol", ident),
+                    format!("'{}' is not bound as a function symbol", ident),
                 ),
             )))
         }
@@ -78,7 +78,7 @@ impl<'ast> Lowering<'ast> {
                     Label::new(
                         self.file_id,
                         span,
-                        &format!("'{}' is already bound to a function", ident),
+                        format!("'{}' is already bound to a function", ident),
                     ),
                 )
                 .with_secondary_labels(vec![Label::new(
@@ -101,7 +101,7 @@ impl<'ast> Lowering<'ast> {
                 Label::new(
                     self.file_id,
                     decl.name.span(),
-                    &format!("'{}' is reserved for use by the compiler", &**decl.name),
+                    format!("'{}' is reserved for use by the compiler", &**decl.name),
                 ),
             )));
         }

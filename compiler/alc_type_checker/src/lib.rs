@@ -54,12 +54,12 @@ impl<'tcx> TyCtx<'tcx> {
             return Err(Box::from(
                 Diagnostic::new_error(
                     "could not infer single type for value",
-                    Label::new(self.file_id, span, &format!("attempted to rebind as {:?}", ty)),
+                    Label::new(self.file_id, span, format!("attempted to rebind as {:?}", ty)),
                 )
                 .with_secondary_labels(vec![Label::new(
                     self.file_id,
                     other_span,
-                    &format!("previously bound as {:?}", other_ty),
+                    format!("previously bound as {:?}", other_ty),
                 )]),
             ));
         }
@@ -149,13 +149,13 @@ impl<'tcx> LocalTyCtx<'tcx> {
                     Label::new(
                         self.file_id,
                         idx.span(),
-                        &format!("attempted to rebind as {:?}", ty),
+                        format!("attempted to rebind as {:?}", ty),
                     ),
                 )
                 .with_secondary_labels(vec![Label::new(
                     self.file_id,
                     other_span,
-                    &format!("previously bound as {:?}", other_ty),
+                    format!("previously bound as {:?}", other_ty),
                 )]),
             ));
         }
@@ -241,7 +241,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                         Label::new(
                             self.file_id,
                             span,
-                            &format!(
+                            format!(
                                 "function expected {} parameters but {} were found",
                                 param_count,
                                 args.len()
@@ -291,7 +291,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                             Label::new(
                                 self.file_id,
                                 span,
-                                &format!("the type of {:?} could not be read from the enum", discriminant),
+                                format!("the type of {:?} could not be read from the enum", discriminant),
                             ),
                         )
                     })?;
@@ -317,7 +317,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                             Label::new(
                                 self.file_id,
                                 span,
-                                &format!("the type of {:?} could not be read from the struct", field_idx),
+                                format!("the type of {:?} could not be read from the struct", field_idx),
                             ),
                         )
                     })?;
@@ -382,7 +382,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                             Label::new(
                                 self.file_id,
                                 span,
-                                &format!("the type of {:?} could not be read from the enum", discriminant),
+                                format!("the type of {:?} could not be read from the enum", discriminant),
                             ),
                         )
                     })?;
@@ -397,7 +397,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
                             Label::new(
                                 self.file_id,
                                 binding.span(),
-                                &format!("the type of {:?} could not be read from the struct", field_idx),
+                                format!("the type of {:?} could not be read from the struct", field_idx),
                             ),
                         )
                     })?;

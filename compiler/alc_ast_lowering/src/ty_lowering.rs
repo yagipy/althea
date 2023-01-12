@@ -151,7 +151,7 @@ impl<'ast> TyLowering<'ast> {
         if self.tys.get(ident).is_some() {
             return Err(Box::from(Diagnostic::new_error(
                 "previously bound type name",
-                Label::new(self.file_id, span, &format!("attempt to rebind '{}' here", ident)),
+                Label::new(self.file_id, span, format!("attempt to rebind '{}' here", ident)),
             )));
         }
         debug!("bind '{}' as {:?}", ident, ty);
@@ -165,7 +165,7 @@ impl<'ast> TyLowering<'ast> {
         }
         Err(Box::from(Diagnostic::new_error(
             "reference to unbound type name",
-            Label::new(self.file_id, span, &format!("'{}' is not bound as a type", ident)),
+            Label::new(self.file_id, span, format!("'{}' is not bound as a type", ident)),
         )))
     }
 
@@ -177,9 +177,9 @@ impl<'ast> TyLowering<'ast> {
             ast::Ty::I32 => Ok(self.i32_ty),
             ast::Ty::I64 => Ok(self.i64_ty),
             ast::Ty::String => Ok(self.string_ty),
-            ast::Ty::Array(element_ty, size) => Ok(self
-                .ty_sess
-                .make_array(self.lookup_ty(element_ty, span)?, *size as i32)),
+            ast::Ty::Array(element_ty, size) => {
+                Ok(self.ty_sess.make_array(self.lookup_ty(element_ty, span)?, *size))
+            }
             ast::Ty::TyName(ident) => self.lookup(ident, span),
         }
     }
@@ -204,7 +204,7 @@ impl<'ast> TyLowering<'ast> {
                     Label::new(
                         self.file_id,
                         span,
-                        &format!("'{}' is not a variant of the type given", variant_name),
+                        format!("'{}' is not a variant of the type given", variant_name),
                     ),
                 )))
             }
@@ -230,7 +230,7 @@ impl<'ast> TyLowering<'ast> {
                     Label::new(
                         self.file_id,
                         span,
-                        &format!("'{}' is not a field of the type given", field_name),
+                        format!("'{}' is not a field of the type given", field_name),
                     ),
                 )))
             }

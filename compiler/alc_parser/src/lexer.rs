@@ -102,7 +102,7 @@ impl<'a> Iterator for Lexer<'a> {
                     Label::new(
                         self.file_id,
                         lo..self.index(),
-                        &format!("'{}' is not valid here", c),
+                        format!("'{}' is not valid here", c),
                     ),
                 ))))
             }
