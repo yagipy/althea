@@ -223,7 +223,7 @@ pub enum PatternKind {
 pub struct Arm {
     pub span: Span,
     pub pattern: PatternKind,
-    pub target: Box<Block>,
+    pub target: Block,
 }
 
 #[derive(Clone, Debug)]

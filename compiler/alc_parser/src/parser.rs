@@ -164,7 +164,7 @@ impl<'a> Parser<'a> {
                 Label::new(
                     self.file_id,
                     current.span(),
-                    &format!("expected '{:?}', but got '{:?}'", kind, current.kind()),
+                    format!("expected '{:?}', but got '{:?}'", kind, current.kind()),
                 ),
             ))),
             _ => Err(Box::from(Diagnostic::new_error(
@@ -172,7 +172,7 @@ impl<'a> Parser<'a> {
                 Label::new(
                     self.file_id,
                     self.last_span.clip(),
-                    &format!("expected '{:?}', but reached end of input", kind),
+                    format!("expected '{:?}', but reached end of input", kind),
                 ),
             ))),
         }
@@ -343,7 +343,7 @@ impl<'a> Parser<'a> {
                     Label::new(
                         self.file_id,
                         span,
-                        &format!("error reading \"{}\"", env.value().unwrap()),
+                        format!("error reading \"{}\"", env.value().unwrap()),
                     ),
                 )
             })?;

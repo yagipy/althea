@@ -89,7 +89,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         module.verify().map_err(|err| {
             Diagnostic::new_bug(
                 "LLVM IR could not be verified",
-                Label::new(file_id, Span::dummy(), &format!("{}", err)),
+                Label::new(file_id, Span::dummy(), format!("{}", err)),
             )
         })?;
         ctx.write_to_ll_file(&ctx.command_options.out)?;
@@ -295,7 +295,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 Label::new(
                     self.file_id,
                     span,
-                    &format!("{} is not listed in the LLVM module", name),
+                    format!("{} is not listed in the LLVM module", name),
                 ),
             ))
         })
@@ -639,7 +639,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         self.module.print_to_file(output_path).map_err(|e| {
             Box::from(Diagnostic::new_error(
                 "failed to write LLVM IR to file",
-                Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
+                Label::new(self.file_id, Span::dummy(), format!("{}", e)),
             ))
         })
     }
@@ -655,7 +655,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             .map_err(|e| {
                 Diagnostic::new_error(
                     "failed to write object file",
-                    Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
+                    Label::new(self.file_id, Span::dummy(), format!("{}", e)),
                 )
             });
 
@@ -676,7 +676,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             .map_err(|e| {
                 Diagnostic::new_error(
                     "failed to write assembly file",
-                    Label::new(self.file_id, Span::dummy(), &format!("{}", e)),
+                    Label::new(self.file_id, Span::dummy(), format!("{}", e)),
                 )
             });
 
