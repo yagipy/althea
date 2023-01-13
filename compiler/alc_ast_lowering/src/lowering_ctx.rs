@@ -77,7 +77,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 Label::new(
                     self.sess.file_id,
                     span,
-                    &format!("'{}' is not bound here (while lowering)", ident),
+                    format!("'{}' is not bound here (while lowering)", ident),
                 ),
             )))
         }
@@ -98,7 +98,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     Label::new(
                         self.sess.file_id,
                         span,
-                        &format!("'{:?}' is not bound here (while lowering)", field_idx),
+                        format!("'{:?}' is not bound here (while lowering)", field_idx),
                     ),
                 )))
             }
@@ -110,7 +110,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 Label::new(
                     self.sess.file_id,
                     span,
-                    &format!("'{:?}' is not bound here (while lowering)", field_idx),
+                    format!("'{:?}' is not bound here (while lowering)", field_idx),
                 ),
             )))
         }
@@ -185,7 +185,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     } else if self.sess.tys.ty_sess().make_i32() == ty {
                         return Ok(ir::ExprKind::I32Literal(*literal as i32));
                     } else if self.sess.tys.ty_sess().make_i64() == ty {
-                        return Ok(ir::ExprKind::I64Literal(*literal as i64));
+                        return Ok(ir::ExprKind::I64Literal(*literal));
                     }
                 }
                 ir::ExprKind::I32Literal(*literal as i32)
@@ -285,7 +285,7 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                                 Label::new(
                                     self.sess.file_id,
                                     lowered.span(),
-                                    &format!("attempted to initialise '{}' here", &**field),
+                                    format!("attempted to initialise '{}' here", &**field),
                                 ),
                                 Label::new(
                                     self.sess.file_id,

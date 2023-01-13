@@ -39,12 +39,14 @@ impl<'gc> OwnRcCtx {
 
 struct LocalOwnRcCtx<'tcx> {
     _global_ctx: &'tcx OwnRcCtx,
+    instructions: Vec<ir::Instruction>,
 }
 
 impl<'tcx> LocalOwnRcCtx<'tcx> {
     fn new(global_ctx: &'tcx OwnRcCtx) -> LocalOwnRcCtx<'tcx> {
         LocalOwnRcCtx {
             _global_ctx: global_ctx,
+            instructions: vec![],
         }
     }
 
@@ -59,7 +61,7 @@ impl<'tcx> LocalOwnRcCtx<'tcx> {
         })
     }
 
-    fn collect_entry(&self, entry: &ir::Entry) -> ir::Entry {
+    fn collect_entry(&mut self, entry: &ir::Entry) -> ir::Entry {
         ir::Entry {
             owner: entry.owner,
             param_bindings: entry.param_bindings.clone(),
@@ -67,24 +69,25 @@ impl<'tcx> LocalOwnRcCtx<'tcx> {
         }
     }
 
-    fn collect_block(&self, block: &ir::Block) -> ir::Block {
+    fn collect_block(&mut self, block: &ir::Block) -> ir::Block {
+        self.push_instructions(&block.instructions);
+        let terminator = self.collect_terminator(&block.terminator);
         ir::Block {
             owner: block.owner,
             block_idx: block.block_idx,
             span: block.span,
-            instructions: self.collect_instructions(&block.instructions),
-            terminator: self.collect_terminator(&block.terminator),
+            instructions: self.instructions.clone(),
+            terminator,
         }
     }
 
-    fn collect_instructions(&self, instructions: &[ir::Instruction]) -> Vec<ir::Instruction> {
-        instructions
-            .iter()
-            .map(|instruction| self.collect_instruction(instruction))
-            .collect()
+    fn push_instructions(&mut self, instructions: &[ir::Instruction]) {
+        for instruction in instructions {
+            self.instructions.push(self.collect_instruction(instruction));
+        }
     }
 
-    fn collect_terminator(&self, terminator: &ir::Terminator) -> ir::Terminator {
+    fn collect_terminator(&mut self, terminator: &ir::Terminator) -> ir::Terminator {
         match terminator {
             ir::Terminator::Return(local_idx) => ir::Terminator::Return(*local_idx),
             ir::Terminator::Match { source, arms } => ir::Terminator::Match {
@@ -98,11 +101,22 @@ impl<'tcx> LocalOwnRcCtx<'tcx> {
         instruction.clone()
     }
 
-    fn collect_arm(&self, arm: &ir::Arm) -> ir::Arm {
+    fn collect_arm(&mut self, arm: &ir::Arm) -> ir::Arm {
         ir::Arm {
             span: arm.span,
             pattern: arm.pattern.clone(),
-            target: self.collect_block(&arm.target),
+            target: ir::Block {
+                owner: arm.target.owner,
+                block_idx: arm.target.block_idx,
+                span: arm.target.span,
+                instructions: arm
+                    .target
+                    .instructions
+                    .iter()
+                    .map(|instruction| self.collect_instruction(instruction))
+                    .collect(),
+                terminator: self.collect_terminator(&arm.target.terminator),
+            },
         }
     }
 }
