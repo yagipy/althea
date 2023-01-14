@@ -239,7 +239,6 @@ pub enum InstructionKind {
     Mark(LocalIdx, Ty),
     Unmark(LocalIdx, Ty),
     Free(LocalIdx, Ty),
-    RTReset,
 }
 
 #[derive(Clone, Debug)]

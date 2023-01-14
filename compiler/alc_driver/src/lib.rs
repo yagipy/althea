@@ -39,6 +39,8 @@ fn run_compiler(command_options: &CommandOptions, files: &mut Files) -> Result<(
     let ast = alc_parser::parse(command_options, files, file_id)?;
     let (ir, ty_sess) = alc_ast_lowering::lower(command_options, file_id, &ast)?;
     let ir = alc_garbage_collector::collect(command_options, file_id, &ty_sess, ir)?;
+    debug!("{:#?}", ir);
+    debug!("{:#?}", ty_sess);
     let _ty_env = alc_type_checker::check(command_options, file_id, &ty_sess, &ir)?;
     alc_codegen_llvm::generate(command_options, file_id, &ty_sess, &ir)
 }

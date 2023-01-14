@@ -1,16 +1,17 @@
-use alc_ast_lowering::{idx_vec::IdxVec, ir, ty};
+use alc_ast_lowering::{idx_vec::IdxVec, ir, ir::LocalIdx, ty};
 use alc_command_option::{CommandOptions, Gc};
 use alc_diagnostic::{FileId, Result};
+use std::collections::HashMap;
 
 pub fn collect(
     command_options: &CommandOptions,
     _file_id: FileId,
-    _ty_sess: &ty::TySess,
+    ty_sess: &ty::TySess,
     ir: ir::Ir,
 ) -> Result<ir::Ir> {
     match command_options.gc {
         Gc::OwnRc => {
-            let mut ctx = OwnRcCtx::new();
+            let mut ctx = OwnRcCtx::new(ty_sess);
             ctx.collect_ir(&ir)?;
             Ok(ctx.ir)
         }
@@ -18,35 +19,45 @@ pub fn collect(
     }
 }
 
-struct OwnRcCtx {
+struct OwnRcCtx<'gc> {
     ir: ir::Ir,
+    ty_sess: &'gc ty::TySess,
 }
 
-impl<'gc> OwnRcCtx {
-    fn new() -> OwnRcCtx {
+impl<'gc> OwnRcCtx<'gc> {
+    fn new(ty_sess: &'gc ty::TySess) -> OwnRcCtx {
         OwnRcCtx {
             ir: ir::Ir { defs: IdxVec::new() },
+            ty_sess,
         }
     }
 
     fn collect_ir(&mut self, ir: &'gc ir::Ir) -> Result<()> {
         for def in ir.defs.values() {
-            self.ir.defs.push(LocalOwnRcCtx::new(self).collect_def(def)?);
+            self.ir
+                .defs
+                .push(LocalOwnRcCtx::new(self, None).collect_def(def)?);
         }
         Ok(())
     }
 }
 
-struct LocalOwnRcCtx<'tcx> {
-    _global_ctx: &'tcx OwnRcCtx,
+pub type RefCount = i32;
+
+struct LocalOwnRcCtx<'gc> {
+    global_ctx: &'gc OwnRcCtx<'gc>,
     instructions: Vec<ir::Instruction>,
+    malloc_map: HashMap<LocalIdx, (ty::Ty, RefCount)>,
+    _parent: Option<&'gc LocalOwnRcCtx<'gc>>,
 }
 
-impl<'tcx> LocalOwnRcCtx<'tcx> {
-    fn new(global_ctx: &'tcx OwnRcCtx) -> LocalOwnRcCtx<'tcx> {
+impl<'gc> LocalOwnRcCtx<'gc> {
+    fn new(global_ctx: &'gc OwnRcCtx, parent: Option<&'gc LocalOwnRcCtx<'gc>>) -> LocalOwnRcCtx<'gc> {
         LocalOwnRcCtx {
-            _global_ctx: global_ctx,
+            global_ctx,
             instructions: vec![],
+            malloc_map: HashMap::new(),
+            _parent: parent,
         }
     }
 
@@ -64,6 +75,7 @@ impl<'tcx> LocalOwnRcCtx<'tcx> {
     fn collect_entry(&mut self, entry: &ir::Entry) -> ir::Entry {
         ir::Entry {
             owner: entry.owner,
+            // TODO: 対応必要か確認
             param_bindings: entry.param_bindings.clone(),
             body: self.collect_block(&entry.body),
         }
@@ -83,21 +95,42 @@ impl<'tcx> LocalOwnRcCtx<'tcx> {
 
     fn push_instructions(&mut self, instructions: &[ir::Instruction]) {
         for instruction in instructions {
-            self.instructions.push(self.collect_instruction(instruction));
+            let instruction = self.collect_instruction(instruction);
+            self.instructions.push(instruction);
         }
     }
 
     fn collect_terminator(&mut self, terminator: &ir::Terminator) -> ir::Terminator {
         match terminator {
-            ir::Terminator::Return(local_idx) => ir::Terminator::Return(*local_idx),
-            ir::Terminator::Match { source, arms } => ir::Terminator::Match {
-                source: *source,
-                arms: arms.iter().map(|arm| self.collect_arm(arm)).collect(),
-            },
+            ir::Terminator::Return(local_idx) => {
+                self.release_malloc_map();
+                ir::Terminator::Return(*local_idx)
+            }
+            ir::Terminator::Match { source, arms } => {
+                // TODO: 対応必要か確認
+                ir::Terminator::Match {
+                    source: *source,
+                    arms: arms.iter().map(|arm| self.collect_arm(arm)).collect(),
+                }
+            }
         }
     }
 
-    fn collect_instruction(&self, instruction: &ir::Instruction) -> ir::Instruction {
+    fn collect_instruction(&mut self, instruction: &ir::Instruction) -> ir::Instruction {
+        if let ir::Instruction {
+            kind:
+                ir::InstructionKind::Let {
+                    binding,
+                    ty: Some(ty),
+                    expr: _,
+                },
+            span: _,
+        } = instruction
+        {
+            if self.global_ctx.ty_sess.ty_kind(*ty).is_struct() {
+                self.retain_malloc_map(*binding, *ty);
+            }
+        }
         instruction.clone()
     }
 
@@ -105,18 +138,33 @@ impl<'tcx> LocalOwnRcCtx<'tcx> {
         ir::Arm {
             span: arm.span,
             pattern: arm.pattern.clone(),
-            target: ir::Block {
-                owner: arm.target.owner,
-                block_idx: arm.target.block_idx,
-                span: arm.target.span,
-                instructions: arm
-                    .target
-                    .instructions
-                    .iter()
-                    .map(|instruction| self.collect_instruction(instruction))
-                    .collect(),
-                terminator: self.collect_terminator(&arm.target.terminator),
-            },
+            target: LocalOwnRcCtx::new(self.global_ctx, Some(self)).collect_block(&arm.target),
         }
+    }
+
+    fn retain_malloc_map(&mut self, local_idx: LocalIdx, ty: ty::Ty) {
+        if let Some((_, count)) = self.malloc_map.get_mut(&local_idx) {
+            *count += 1;
+            return;
+        }
+
+        self.malloc_map.insert(local_idx, (ty, 0));
+    }
+
+    fn release_malloc_map(&mut self) {
+        let mut new_malloc_map = HashMap::new();
+        for (malloc_idx, (ty, count)) in self.malloc_map.iter_mut() {
+            *count -= 1;
+            if count <= &mut 0 {
+                self.instructions.push(ir::Instruction {
+                    kind: ir::InstructionKind::Free(*malloc_idx, *ty),
+                    span: malloc_idx.span(),
+                });
+                continue;
+            }
+
+            new_malloc_map.insert(*malloc_idx, (*ty, *count));
+        }
+        self.malloc_map = new_malloc_map;
     }
 }
