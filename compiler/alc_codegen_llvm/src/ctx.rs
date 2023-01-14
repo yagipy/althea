@@ -1,5 +1,6 @@
 use crate::{CodegenLLVM, ACCEPT, BIND, CLOSE, LISTEN, PRINTF, RECV, SEND, SNPRINTF, SOCKET, STRLEN};
 use alc_ast_lowering::{ir, ty};
+use alc_command_option::Gc;
 use alc_diagnostic::{Diagnostic, Label, Result};
 use inkwell::{
     types::BasicType,
@@ -430,32 +431,18 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 );
             }
             ir::InstructionKind::Mark(idx, ty) => {
-                // %a.mark := 1;
                 self.write_mark(self.lookup(*idx)?.into_pointer_value(), *ty, true);
             }
             ir::InstructionKind::Unmark(idx, ty) => {
-                // %a.mark := 0;
                 self.write_mark(self.lookup(*idx)?.into_pointer_value(), *ty, false);
             }
-            ir::InstructionKind::Free(idx, ty) => {
-                // if marked(%a) {} else { @alc_free(%a); }
-                let ptr = self.lookup(*idx)?.into_pointer_value();
-                let free_block = self.context.append_basic_block(self.llvm, "free");
-                let merge_block = self.context.append_basic_block(self.llvm, "merge");
-                self.builder.build_conditional_branch(
-                    self.read_mark(ptr, *ty).into_int_value(),
-                    merge_block,
-                    free_block,
-                );
-                self.builder.position_at_end(free_block);
-                self.build_free(ptr);
-                self.builder.build_unconditional_branch(merge_block);
-                self.builder.position_at_end(merge_block);
-            }
-            ir::InstructionKind::RTReset => {
-                // @alc_reset();
-                self.build_reset();
-            }
+            ir::InstructionKind::Free(idx, _) => match self.command_options.gc {
+                Gc::OwnRc => {
+                    let ptr = self.lookup(*idx)?.into_pointer_value();
+                    self.build_free(ptr);
+                }
+                Gc::None => {}
+            },
         }
         Ok(())
     }

@@ -6,6 +6,6 @@ func main() i32 {
     let user: User = User {
         id: 1,
     }
-    let user2: User = user // 参照カウントが増える
+    let user2: User = user // lowering時にlookupしている
     user2.id
 }

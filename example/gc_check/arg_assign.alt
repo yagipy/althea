@@ -6,7 +6,7 @@ func main() i32 {
     let user: User = User {
         id: 1,
     }
-    let num: User = foo(user)
+    let num: i32 = foo(user)
     user.id
 }
 

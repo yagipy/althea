@@ -19,8 +19,6 @@ use inkwell::{
 use log::debug;
 use std::path::{Path, PathBuf};
 
-const ALC_FREE: &str = "alc_free";
-const ALC_RESET: &str = "alc_reset";
 const PRINTF: &str = "printf";
 const SOCKET: &str = "socket";
 const BIND: &str = "bind";
@@ -301,11 +299,6 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         })
     }
 
-    fn build_reset(&self) {
-        self.builder
-            .build_call(self.module.get_function(ALC_RESET).unwrap(), &[], "reset");
-    }
-
     fn build_free(&self, ptr: PointerValue<'ctx>) {
         let ptr = self.builder.build_pointer_cast(
             ptr,
@@ -313,7 +306,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             "raw",
         );
         self.builder.build_call(
-            self.module.get_function(ALC_FREE).unwrap(),
+            self.module.get_function(FREE).unwrap(),
             &[ptr.as_basic_value_enum().into()],
             "free",
         );
@@ -449,10 +442,6 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
         } else {
             panic!("atttempted to read mark of a type that wasn't a struct or an enum")
         }
-    }
-
-    fn read_mark(&self, ptr: PointerValue<'ctx>, ty: ty::Ty) -> BasicValueEnum<'ctx> {
-        self.builder.build_load(self.mark_ptr(ptr, ty), "mark")
     }
 
     fn write_mark(&self, ptr: PointerValue<'ctx>, ty: ty::Ty, mark: bool) {

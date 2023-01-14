@@ -466,7 +466,6 @@ impl<'tcx> LocalTyCtx<'tcx> {
                     )));
                 }
             }
-            _ => {}
         }
         Ok(())
     }
