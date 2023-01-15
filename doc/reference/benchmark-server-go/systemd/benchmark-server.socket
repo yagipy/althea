@@ -1,9 +1,0 @@
-[Unit]
-Description=Socket for benchmark server.
-
-[Socket]
-ListenStream=0.0.0.0:80
-NoDelay=true
-
-[Install]
-WantedBy=sockets.target

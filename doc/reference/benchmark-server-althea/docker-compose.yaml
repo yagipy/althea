@@ -14,12 +14,12 @@ services:
       dockerfile: cli/Dockerfile
     env_file:
       - infra/credential/docker.admin.env
-  app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
-    ports:
-      - 80:80
-    volumes:
-      - ./app:/app
-    tty: true
+#  app:
+#    build:
+#      context: ./app
+#      dockerfile: Dockerfile
+#    ports:
+#      - 80:80
+#    volumes:
+#      - ./app:/app
+#    tty: true
