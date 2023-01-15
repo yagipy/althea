@@ -53,8 +53,7 @@ func transfer(socket_id: i32) i32 {
         let send_size: i64 = send(accept_id, res_buf, 2048, "HTTP/1.0 200 OK
 Content-Type: text/html
 
-Welcome to Althea Server!
-", 0)
+Hello", 0)
         let close_res = close(accept_id)
         transfer(socket_id)
     }

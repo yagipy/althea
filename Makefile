@@ -8,5 +8,5 @@ attach:
 
 .PHONY: imagepush
 imagepush:
-	docker build -t yagipy/althea:bullseye -f tool/Dockerfile .
+	docker build -t yagipy/althea:bullseye -f tool/bullseye.dockerfile .
 	docker push yagipy/althea:bullseye
