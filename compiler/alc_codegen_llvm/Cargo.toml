@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4.8"
-inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm14-0"] }
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm13-0"] }
 alc_diagnostic = { path = "../alc_diagnostic" }
 alc_command_option = { path = "../alc_command_option" }
 alc_ast_lowering = { path = "../alc_ast_lowering" }

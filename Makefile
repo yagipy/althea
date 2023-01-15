@@ -1,23 +1,12 @@
 .PHONY: build
-build: Vagrantfile
-	vagrant up
+build:
+	docker build -t althea .
 
 .PHONY: attach
 attach:
-	vagrant ssh
+	docker run --rm -it -v $$PWD:/althea althea bash
 
-.PHONY: stop
-stop:
-	vagrant halt
-
-.PHONY: clean
-clean:
-	vagrant destroy
-
-#.PHONY: build
-#build: Dockerfile
-#	docker build -t althea .
-#
-#.PHONY: attach
-#attach:
-#	docker run --rm -it -v $$PWD:/althea althea bash
+.PHONY: imagepush
+imagepush:
+	docker build -t yagipy/althea:bullseye -f tool/Dockerfile .
+	docker push yagipy/althea:bullseye
