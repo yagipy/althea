@@ -496,6 +496,9 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                             Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
                         ))
                     })?;
+                let loop_block = self.context.append_basic_block(self.llvm, "loop");
+                self.builder.build_unconditional_branch(loop_block);
+                self.builder.position_at_end(loop_block);
                 // accept
                 let accept_file_descriptor = self
                     .builder
@@ -636,6 +639,9 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                             Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
                         ))
                     })?;
+                self.builder.build_unconditional_branch(loop_block);
+                let end_block = self.context.append_basic_block(self.llvm, "end");
+                self.builder.position_at_end(end_block);
                 let socket_close = self
                     .builder
                     .build_call(
