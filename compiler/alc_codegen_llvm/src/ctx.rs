@@ -1,4 +1,4 @@
-use crate::{CodegenLLVM, ACCEPT, BIND, CLOSE, LISTEN, PRINTF, RECV, SEND, SNPRINTF, SOCKET, STRLEN};
+use crate::{CodegenLLVM, ACCEPT, BIND, CLOSE, HTONS, LISTEN, PRINTF, RECV, SEND, SNPRINTF, SOCKET, STRLEN};
 use alc_ast_lowering::{ir, ty};
 use alc_command_option::Gc;
 use alc_diagnostic::{Diagnostic, Label, Result};
@@ -447,6 +447,21 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 // bind
                 let socket_file_descriptor = socket_file_descriptor.into_int_value();
                 let address = self.lookup(*address)?.into_pointer_value();
+                let port_ptr = unsafe { self.gep(address, 1, "port") };
+                let port = self.builder.build_load(port_ptr, "port").into_int_value();
+                let port = self
+                    .builder
+                    .build_call(self.module.get_function(HTONS).unwrap(), &[port.into()], "port")
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?
+                    .into_int_value();
+                self.builder.build_store(port_ptr, port);
                 let address_length = self.lookup(*address_length)?.into_int_value();
                 let casted_address = self.builder.build_bitcast(
                     address,
