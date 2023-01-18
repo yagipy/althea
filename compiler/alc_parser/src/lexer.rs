@@ -207,6 +207,7 @@ impl<'a> Lexer<'a> {
             "recv" => Kind::Recv.into(),
             "send" => Kind::Send.into(),
             "close" => Kind::Close.into(),
+            "listen_and_serve" => Kind::ListenAndServe.into(),
             data => Token::new(Kind::Ident, data),
         }
     }

@@ -187,6 +187,22 @@ pub enum ExprKind {
     Close {
         socket_file_descriptor: LocalIdx,
     },
+    ListenAndServe {
+        domain: LocalIdx,
+        ty: LocalIdx,
+        protocol: LocalIdx,
+        address: LocalIdx,
+        address_length: LocalIdx,
+        backlog: LocalIdx,
+        recv_buffer: LocalIdx,
+        recv_buffer_length: LocalIdx,
+        recv_flags: LocalIdx,
+        send_buffer: LocalIdx,
+        send_buffer_length: LocalIdx,
+        send_content: LocalIdx,
+        send_flags: LocalIdx,
+        // handler: DefIdx,
+    },
 }
 
 #[derive(Clone, Debug)]

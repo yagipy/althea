@@ -104,6 +104,21 @@ pub enum Expr {
     Close {
         socket_file_descriptor: Spanned<Box<Expr>>,
     },
+    ListenAndServe {
+        domain: Spanned<Box<Expr>>,
+        ty: Spanned<Box<Expr>>,
+        protocol: Spanned<Box<Expr>>,
+        address: Spanned<Box<Expr>>,
+        address_length: Spanned<Box<Expr>>,
+        backlog: Spanned<Box<Expr>>,
+        recv_buffer: Spanned<Box<Expr>>,
+        recv_buffer_length: Spanned<Box<Expr>>,
+        recv_flags: Spanned<Box<Expr>>,
+        send_buffer: Spanned<Box<Expr>>,
+        send_buffer_length: Spanned<Box<Expr>>,
+        send_content: Spanned<Box<Expr>>,
+        send_flags: Spanned<Box<Expr>>,
+    },
 }
 
 #[derive(Debug)]

@@ -341,6 +341,7 @@ impl<'tcx> LocalTyCtx<'tcx> {
             ir::ExprKind::Recv { .. } => Ok(self.ty_sess.make_i64()),
             ir::ExprKind::Send { .. } => Ok(self.ty_sess.make_i64()),
             ir::ExprKind::Close { .. } => Ok(self.ty_sess.make_i32()),
+            ir::ExprKind::ListenAndServe { .. } => Ok(self.ty_sess.make_i32()),
         }
     }
 
