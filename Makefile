@@ -4,7 +4,7 @@ build:
 
 .PHONY: attach
 attach:
-	docker run --rm -it -v $$PWD:/althea althea bash
+	docker run -it -v $$PWD:/althea althea bash
 
 .PHONY: imagepush
 imagepush:

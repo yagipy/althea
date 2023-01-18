@@ -1,16 +1,10 @@
 # Althea
 - Althea is a programming language
 
-## setup
+## Setup on Docker
 ```shell
 make build
 make attach
-sudo su - root
-cd althea
 cargo run -- example/println.alt
 ./out
-```
-
-```shell
-make clean
 ```
