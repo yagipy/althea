@@ -1,6 +1,5 @@
 use crate::{
     ast,
-    ast::Expr,
     lexer::Lexer,
     token::{Kind, Token},
 };
@@ -203,7 +202,7 @@ impl<'a> Parser<'a> {
         Ok(span.span(elems))
     }
 
-    fn next_array_elements(&mut self) -> Result<Spanned<Vec<Spanned<Expr>>>> {
+    fn next_array_elements(&mut self) -> Result<Spanned<Vec<Spanned<ast::Expr>>>> {
         let span = self.eat(Kind::LSquare)?.span();
         let mut elems = vec![];
 
@@ -453,6 +452,80 @@ impl<'a> Parser<'a> {
             self.eat(Kind::RParen)?;
             Ok(span.span(ast::Expr::Close {
                 socket_file_descriptor: socket_file_descriptor.boxed(),
+            }))
+        } else if self.next_is(Kind::ListenAndServe) {
+            let span = self.eat(Kind::ListenAndServe)?.span();
+            self.eat(Kind::LParen)?;
+            let port = self.next_expr()?;
+            self.eat(Kind::RParen)?;
+            let domain = span.span(ast::Expr::NumberLiteral(2));
+            let ty = span.span(ast::Expr::NumberLiteral(1));
+            let protocol = span.span(ast::Expr::NumberLiteral(0));
+            let address = span.span(ast::Expr::Record {
+                struct_name: span.span(String::from("SockAddrIn")),
+                fields: vec![
+                    (
+                        span.span(String::from("family")),
+                        span.span(ast::Expr::NumberLiteral(2)),
+                    ),
+                    (span.span(String::from("port")), port),
+                    (
+                        span.span(String::from("addr")),
+                        span.span(ast::Expr::Record {
+                            struct_name: span.span(String::from("InAddr")),
+                            fields: vec![(
+                                span.span(String::from("s_addr")),
+                                span.span(ast::Expr::NumberLiteral(0)),
+                            )],
+                        }),
+                    ),
+                    (
+                        span.span(String::from("buf")),
+                        span.span(ast::Expr::ArrayLiteral(vec![
+                            span.span(ast::Expr::NumberLiteral(
+                                0
+                            ));
+                            8
+                        ])),
+                    ),
+                ],
+            });
+            let address_length = span.span(ast::Expr::NumberLiteral(16));
+            let backlog = span.span(ast::Expr::NumberLiteral(50));
+            let recv_buffer = span.span(ast::Expr::ArrayLiteral(vec![
+                span.span(ast::Expr::NumberLiteral(
+                    0
+                ));
+                1024
+            ]));
+            let recv_buffer_length = span.span(ast::Expr::NumberLiteral(1024));
+            let recv_flags = span.span(ast::Expr::NumberLiteral(0));
+            let send_buffer = span.span(ast::Expr::ArrayLiteral(vec![
+                span.span(ast::Expr::NumberLiteral(
+                    0
+                ));
+                1024
+            ]));
+            let send_buffer_length = span.span(ast::Expr::NumberLiteral(1024));
+            let send_content = span.span(ast::Expr::StringLiteral(String::from(
+                "HTTP/1.0 200 OK\nContent-Type: text/html\n\nWelcome to Althea Server!",
+            )));
+            let send_flags = span.span(ast::Expr::NumberLiteral(0));
+
+            Ok(span.span(ast::Expr::ListenAndServe {
+                domain: domain.boxed(),
+                ty: ty.boxed(),
+                protocol: protocol.boxed(),
+                address: address.boxed(),
+                address_length: address_length.boxed(),
+                backlog: backlog.boxed(),
+                recv_buffer: recv_buffer.boxed(),
+                recv_buffer_length: recv_buffer_length.boxed(),
+                recv_flags: recv_flags.boxed(),
+                send_buffer: send_buffer.boxed(),
+                send_buffer_length: send_buffer_length.boxed(),
+                send_content: send_content.boxed(),
+                send_flags: send_flags.boxed(),
             }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)

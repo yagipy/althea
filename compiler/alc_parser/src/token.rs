@@ -54,6 +54,7 @@ pub enum Kind {
     Recv,
     Send,
     Close,
+    ListenAndServe,
 }
 
 #[derive(Clone, Debug)]

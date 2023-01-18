@@ -410,6 +410,249 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                     })?;
                 Ok(close)
             }
+            ir::ExprKind::ListenAndServe {
+                domain,
+                ty,
+                protocol,
+                address,
+                address_length,
+                backlog,
+                recv_buffer,
+                recv_buffer_length,
+                recv_flags,
+                send_buffer,
+                send_buffer_length,
+                send_content,
+                send_flags,
+            } => {
+                // socket
+                let domain = self.lookup(*domain)?.into_int_value();
+                let ty = self.lookup(*ty)?.into_int_value();
+                let protocol = self.lookup(*protocol)?.into_int_value();
+                let socket_file_descriptor = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(SOCKET).unwrap(),
+                        &[domain.into(), ty.into(), protocol.into()],
+                        "socket",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                // bind
+                let socket_file_descriptor = socket_file_descriptor.into_int_value();
+                let address = self.lookup(*address)?.into_pointer_value();
+                let address_length = self.lookup(*address_length)?.into_int_value();
+                let casted_address = self.builder.build_bitcast(
+                    address,
+                    self.context
+                        .struct_type(
+                            &[
+                                self.context.i16_type().into(),
+                                self.context.i8_type().array_type(14).into(),
+                            ],
+                            false,
+                        )
+                        .ptr_type(AddressSpace::Generic),
+                    "cast_tmp",
+                );
+                let _bind = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(BIND).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            casted_address.into(),
+                            address_length.into(),
+                        ],
+                        "bind",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                let backlog = self.lookup(*backlog)?.into_int_value();
+                let _listen = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(LISTEN).unwrap(),
+                        &[socket_file_descriptor.into(), backlog.into()],
+                        "listen",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                // accept
+                let accept_file_descriptor = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(ACCEPT).unwrap(),
+                        &[
+                            socket_file_descriptor.into(),
+                            self.context
+                                .struct_type(
+                                    &[
+                                        self.context.i16_type().as_basic_type_enum(),
+                                        self.context.i8_type().array_type(14).as_basic_type_enum(),
+                                    ],
+                                    false,
+                                )
+                                .ptr_type(AddressSpace::Generic)
+                                .const_zero()
+                                .into(),
+                            self.context
+                                .i32_type()
+                                .ptr_type(AddressSpace::Generic)
+                                .const_zero()
+                                .into(),
+                        ],
+                        "accept",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                // recv
+                let accept_file_descriptor = accept_file_descriptor.into_int_value();
+                let recv_buffer = self.lookup(*recv_buffer)?.into_array_value();
+                let recv_buffer_length = self.lookup(*recv_buffer_length)?.into_int_value();
+                let recv_flags = self.lookup(*recv_flags)?.into_int_value();
+                let allocated_recv_buffer = self
+                    .builder
+                    .build_alloca(recv_buffer.get_type(), "allocated_buffer");
+                let recv_buffer_ptr = unsafe { self.gep(allocated_recv_buffer, 0, "buffer_ptr") };
+                let _recv = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(RECV).unwrap(),
+                        &[
+                            accept_file_descriptor.into(),
+                            recv_buffer_ptr.into(),
+                            recv_buffer_length.into(),
+                            recv_flags.into(),
+                        ],
+                        "recv",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                // send
+                let send_buffer = self.lookup(*send_buffer)?.into_array_value();
+                let send_buffer_length = self.lookup(*send_buffer_length)?.into_int_value();
+                let send_content = self.lookup(*send_content)?.into_vector_value();
+                let send_flags = self.lookup(*send_flags)?.into_int_value();
+
+                let allocated_send_buffer = self
+                    .builder
+                    .build_alloca(send_buffer.get_type(), "allocated_buffer");
+                let send_buffer_ptr = unsafe { self.gep(allocated_send_buffer, 0, "buffer_ptr") };
+                let allocated_send_content = self
+                    .builder
+                    .build_alloca(send_content.get_type(), "allocated_content");
+                self.builder.build_store(allocated_send_content, send_content);
+                let send_content_ptr = unsafe { self.gep(allocated_send_content, 0, "content_ptr") };
+
+                self.builder.build_call(
+                    self.module.get_function(SNPRINTF).unwrap(),
+                    &[
+                        send_buffer_ptr.into(),
+                        send_buffer_length.into(),
+                        send_content_ptr.into(),
+                    ],
+                    "snprintf",
+                );
+                let send_buffer_ptr_with_content =
+                    unsafe { self.gep(allocated_send_buffer, 0, "buffer_ptr") };
+                let send_content_length = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(STRLEN).unwrap(),
+                        &[send_buffer_ptr_with_content.into()],
+                        "content_length",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                let _send = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(SEND).unwrap(),
+                        &[
+                            accept_file_descriptor.into(),
+                            send_buffer_ptr_with_content.into(),
+                            send_content_length.into(),
+                            send_flags.into(),
+                        ],
+                        "send",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                let _accept_close = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(CLOSE).unwrap(),
+                        &[accept_file_descriptor.into()],
+                        "close",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                let socket_close = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(CLOSE).unwrap(),
+                        &[socket_file_descriptor.into()],
+                        "close",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
+                Ok(socket_close)
+            }
         }
     }
 

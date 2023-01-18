@@ -412,6 +412,80 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     socket_file_descriptor,
                 }
             }
+            ast::Expr::ListenAndServe {
+                domain,
+                ty,
+                protocol,
+                address,
+                address_length,
+                backlog,
+                recv_buffer,
+                recv_buffer_length,
+                recv_flags,
+                send_buffer,
+                send_buffer_length,
+                send_content,
+                send_flags,
+            } => {
+                let domain = self.lower_expr(None, domain, domain.span())?;
+                let ty = self.lower_expr(None, ty, ty.span())?;
+                let protocol = self.lower_expr(None, protocol, protocol.span())?;
+                let address = self.lower_expr(None, address, address.span())?;
+                let address_length = self.lower_expr(None, address_length, address_length.span())?;
+                let backlog = self.lower_expr(None, backlog, backlog.span())?;
+                let recv_buffer = self.lower_expr(
+                    Some(
+                        self.sess
+                            .tys
+                            .ty_sess()
+                            .make_array(self.sess.tys.ty_sess().make_i8(), 1024),
+                    ),
+                    recv_buffer,
+                    recv_buffer.span(),
+                )?;
+                let recv_buffer_length = self.lower_expr(
+                    Some(self.sess.tys.ty_sess().make_i64()),
+                    recv_buffer_length,
+                    recv_buffer_length.span(),
+                )?;
+                let recv_flags = self.lower_expr(None, recv_flags, recv_flags.span())?;
+                let send_buffer = self.lower_expr(
+                    Some(
+                        self.sess
+                            .tys
+                            .ty_sess()
+                            .make_array(self.sess.tys.ty_sess().make_i8(), 1024),
+                    ),
+                    send_buffer,
+                    send_buffer.span(),
+                )?;
+                let send_buffer_length = self.lower_expr(
+                    Some(self.sess.tys.ty_sess().make_i64()),
+                    send_buffer_length,
+                    send_buffer_length.span(),
+                )?;
+                let send_content = self.lower_expr(
+                    Some(self.sess.tys.ty_sess().make_string()),
+                    send_content,
+                    send_content.span(),
+                )?;
+                let send_flags = self.lower_expr(None, send_flags, send_flags.span())?;
+                ir::ExprKind::ListenAndServe {
+                    domain,
+                    ty,
+                    protocol,
+                    address,
+                    address_length,
+                    backlog,
+                    recv_buffer,
+                    recv_buffer_length,
+                    recv_flags,
+                    send_buffer,
+                    send_buffer_length,
+                    send_content,
+                    send_flags,
+                }
+            }
         })
     }
 
