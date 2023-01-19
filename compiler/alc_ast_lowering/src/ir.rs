@@ -201,7 +201,6 @@ pub enum ExprKind {
         send_buffer_length: LocalIdx,
         send_content: LocalIdx,
         send_flags: LocalIdx,
-        // handler: DefIdx,
     },
 }
 

@@ -1,0 +1,8 @@
+func main() i32 {
+    let hello = do()
+    0
+}
+
+func do() string {
+    "Hello"
+}

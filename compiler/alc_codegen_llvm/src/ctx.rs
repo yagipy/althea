@@ -762,7 +762,25 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
     fn compile_terminator(&mut self, terminator: &ir::Terminator) -> Result<()> {
         match terminator {
             ir::Terminator::Return(local_idx) => {
-                self.builder.build_return(Some(&self.lookup(*local_idx)?));
+                if self.lookup(*local_idx)?.is_vector_value() {
+                    let value = self.lookup(*local_idx)?.into_vector_value();
+                    // TODO: 回収と修正
+                    // let const_ref = self.builder.build_alloca(value.get_type(), "return_tmp");
+                    let const_ref = self
+                        .builder
+                        .build_malloc(value.get_type(), &"return_tmp")
+                        .map_err(|err| {
+                            Box::from(Diagnostic::new_bug(
+                                "failed to build malloc call",
+                                Label::new(self.file_id, local_idx.span(), err),
+                            ))
+                        })?;
+                    self.builder.build_store(const_ref, value);
+                    let ptr = unsafe { self.sess.gep(const_ref, 0, "return_tmp") };
+                    self.builder.build_return(Some(&ptr));
+                } else {
+                    self.builder.build_return(Some(&self.lookup(*local_idx)?));
+                }
             }
             ir::Terminator::Match { source, arms } => {
                 let source = self.lookup(*source)?;
