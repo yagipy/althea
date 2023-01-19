@@ -566,6 +566,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             ty::TyKind::I16 => self.context.i16_type().into(),
             ty::TyKind::I32 => self.context.i32_type().into(),
             ty::TyKind::I64 => self.context.i64_type().into(),
+            ty::TyKind::String => self.context.i8_type().ptr_type(AddressSpace::Generic).into(),
             ty::TyKind::Array(Array { element_ty: _, size }) => {
                 self.context.i8_type().array_type(*size as u32).into()
             }
@@ -588,10 +589,11 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn compile_basic_ty(&self, ty: ty::Ty) -> BasicTypeEnum<'ctx> {
         let compiled_ty_unboxed = self.compile_basic_ty_unboxed(ty);
-        if self.ty_sess.ty_kind(ty).is_i64()
-            || self.ty_sess.ty_kind(ty).is_i32()
+        if self.ty_sess.ty_kind(ty).is_i8()
             || self.ty_sess.ty_kind(ty).is_i16()
-            || self.ty_sess.ty_kind(ty).is_i8()
+            || self.ty_sess.ty_kind(ty).is_i32()
+            || self.ty_sess.ty_kind(ty).is_i64()
+            || self.ty_sess.ty_kind(ty).is_string()
             || self.ty_sess.ty_kind(ty).is_array()
         {
             compiled_ty_unboxed
@@ -606,6 +608,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
             let compiled_ty = self.compile_basic_ty(*ty).into();
             param_tys.push(compiled_ty);
         }
+        // TODO
         self.compile_basic_ty(prototype.return_ty)
             .fn_type(param_tys.as_slice(), false)
     }
