@@ -2,7 +2,7 @@ use alc_diagnostic::Spanned;
 
 pub type Ident = String;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Ty {
     I8,
     I16,
@@ -13,7 +13,7 @@ pub enum Ty {
     TyName(Ident),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Binding {
     pub binder: Spanned<Ident>,
     pub ty: Spanned<Ty>,
@@ -116,12 +116,14 @@ pub enum Expr {
         recv_flags: Spanned<Box<Expr>>,
         send_buffer: Spanned<Box<Expr>>,
         send_buffer_length: Spanned<Box<Expr>>,
-        send_content: Spanned<Box<Expr>>,
         send_flags: Spanned<Box<Expr>>,
+        format_string: Spanned<Box<Expr>>,
+        http_header: Spanned<Box<Expr>>,
+        call_handler: Spanned<Box<Expr>>,
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Pattern {
     NumberLiteral(i64),
     ArrayLiteral(Vec<Spanned<Expr>>),
@@ -138,7 +140,7 @@ pub enum Pattern {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Term {
     Let {
         binder: Spanned<Ident>,
@@ -162,7 +164,7 @@ pub enum Term {
     Return(Expr),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FnDecl {
     pub name: Spanned<Ident>,
     pub params: Vec<Spanned<Binding>>,
@@ -170,19 +172,19 @@ pub struct FnDecl {
     pub body: Spanned<Term>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Enum {
     pub name: Spanned<Ident>,
     pub variants: Vec<Spanned<Binding>>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Struct {
     pub name: Spanned<Ident>,
     pub fields: Vec<Spanned<Binding>>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Item {
     Fn(Box<FnDecl>),
     Enum(Enum),

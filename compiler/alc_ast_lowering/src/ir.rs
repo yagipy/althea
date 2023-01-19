@@ -199,8 +199,10 @@ pub enum ExprKind {
         recv_flags: LocalIdx,
         send_buffer: LocalIdx,
         send_buffer_length: LocalIdx,
-        send_content: LocalIdx,
         send_flags: LocalIdx,
+        format_string: LocalIdx,
+        http_header: LocalIdx,
+        call_handler: LocalIdx,
     },
 }
 

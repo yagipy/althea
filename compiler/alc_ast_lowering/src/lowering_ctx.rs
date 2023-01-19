@@ -424,8 +424,10 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                 recv_flags,
                 send_buffer,
                 send_buffer_length,
-                send_content,
                 send_flags,
+                format_string,
+                http_header,
+                call_handler,
             } => {
                 let domain = self.lower_expr(None, domain, domain.span())?;
                 let ty = self.lower_expr(None, ty, ty.span())?;
@@ -464,12 +466,18 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     send_buffer_length,
                     send_buffer_length.span(),
                 )?;
-                let send_content = self.lower_expr(
-                    Some(self.sess.tys.ty_sess().make_string()),
-                    send_content,
-                    send_content.span(),
-                )?;
                 let send_flags = self.lower_expr(None, send_flags, send_flags.span())?;
+                let format_string = self.lower_expr(
+                    Some(self.sess.tys.ty_sess().make_string()),
+                    format_string,
+                    format_string.span(),
+                )?;
+                let http_header = self.lower_expr(
+                    Some(self.sess.tys.ty_sess().make_string()),
+                    http_header,
+                    http_header.span(),
+                )?;
+                let call_handler = self.lower_expr(None, call_handler, call_handler.span())?;
                 ir::ExprKind::ListenAndServe {
                     domain,
                     ty,
@@ -482,8 +490,10 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     recv_flags,
                     send_buffer,
                     send_buffer_length,
-                    send_content,
                     send_flags,
+                    format_string,
+                    http_header,
+                    call_handler,
                 }
             }
         })
