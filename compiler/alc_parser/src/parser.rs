@@ -14,7 +14,7 @@ pub enum Restriction {
     NoStructLiteral,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Parser<'a> {
     file_id: FileId,
     current: Option<Spanned<Token>>,
@@ -22,6 +22,8 @@ pub struct Parser<'a> {
     tokens: Lexer<'a>,
     #[allow(unused)]
     command_options: &'a CommandOptions,
+    child_items: Vec<Spanned<ast::Item>>,
+    child_item_count: usize,
 }
 
 impl<'a> Iterator for Parser<'a> {
@@ -29,6 +31,11 @@ impl<'a> Iterator for Parser<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current.is_none() {
+            // TODO: リファクタ
+            if let Some(child_item) = self.child_items.get(self.child_item_count) {
+                self.child_item_count += 1;
+                return Some(Ok(child_item.clone()));
+            }
             None
         } else {
             Some(self.next_item())
@@ -123,6 +130,8 @@ impl<'a> Parser<'a> {
                 last_span: Span::dummy(),
                 tokens: lexer,
                 command_options,
+                child_items: Vec::new(),
+                child_item_count: 0,
             })
         } else {
             Err(Box::from(Diagnostic::new_bug(
@@ -457,7 +466,26 @@ impl<'a> Parser<'a> {
             let span = self.eat(Kind::ListenAndServe)?.span();
             self.eat(Kind::LParen)?;
             let port = self.next_expr()?;
+            self.eat(Kind::Comma)?;
+            let handler = self.next_fn_item()?;
             self.eat(Kind::RParen)?;
+            let call_handler = if let ast::Item::Fn(fn_decl) = handler.clone().into_raw() {
+                span.span(ast::Expr::Call {
+                    target: fn_decl.name,
+                    args: vec![],
+                })
+            } else {
+                Err(Box::from(Diagnostic::new_error(
+                    "token type mismatch",
+                    Label::new(
+                        self.file_id,
+                        span,
+                        // TODO: リファクタ
+                        format!("TODO"),
+                    ),
+                )))?
+            };
+            self.child_items.push(handler);
             let domain = span.span(ast::Expr::NumberLiteral(2));
             let ty = span.span(ast::Expr::NumberLiteral(1));
             let protocol = span.span(ast::Expr::NumberLiteral(0));
@@ -507,10 +535,11 @@ impl<'a> Parser<'a> {
                 1024
             ]));
             let send_buffer_length = span.span(ast::Expr::NumberLiteral(1024));
-            let send_content = span.span(ast::Expr::StringLiteral(String::from(
-                "HTTP/1.0 200 OK\nContent-Type: text/html\n\nWelcome to Althea Server!",
-            )));
             let send_flags = span.span(ast::Expr::NumberLiteral(0));
+            let format_string = span.span(ast::Expr::StringLiteral(String::from("%s%s")));
+            let http_header = span.span(ast::Expr::StringLiteral(String::from(
+                "HTTP/1.0 200 OK\nContent-Type: text/html\n\n",
+            )));
 
             Ok(span.span(ast::Expr::ListenAndServe {
                 domain: domain.boxed(),
@@ -524,8 +553,10 @@ impl<'a> Parser<'a> {
                 recv_flags: recv_flags.boxed(),
                 send_buffer: send_buffer.boxed(),
                 send_buffer_length: send_buffer_length.boxed(),
-                send_content: send_content.boxed(),
                 send_flags: send_flags.boxed(),
+                format_string: format_string.boxed(),
+                http_header: http_header.boxed(),
+                call_handler: call_handler.boxed(),
             }))
         } else if self.next_is(Kind::Ident) {
             self.next_ident_expr(res)

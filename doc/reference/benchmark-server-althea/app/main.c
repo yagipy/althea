@@ -30,9 +30,8 @@ int main() {
     }
 
     snprintf(buf, sizeof(buf),
-             "HTTP/1.0 200 OK\r\n"
-             "Content-Type: text/html\r\n"
-             "\r\n"
+             "%s%s",
+             "HTTP/1.0 200 OK\r\nContent-Type: text/html\r\n\r\nA",
              "Hello\r\n");
 
     while (1) {

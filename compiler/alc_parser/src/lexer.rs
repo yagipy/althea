@@ -2,7 +2,7 @@ use crate::token::{Kind, Token};
 use alc_diagnostic::{Diagnostic, FileId, Files, Label, Result, Span, Spanned};
 use std::{iter::FusedIterator, str::Chars};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Lexer<'a> {
     file_id: FileId,
     initial_len: usize,
