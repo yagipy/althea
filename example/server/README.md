@@ -16,13 +16,13 @@ AWS_DEFAULT_REGION=<YOUR_AWS_DEFAULT_REGION>
 ```shell
 docker-compose up -d
 docker-compose exec infra terraform apply
-docker-compose run --rm cli aws ssm start-session --target <INSTANCE_ID> --document-name benchmark-server-althea-deployer
+docker-compose run --rm cli aws ssm start-session --target <INSTANCE_ID> --document-name server-deployer
 ```
 
 - Execute on instance
 ```shell
 sudo su - root
-cd /root/althea/doc/reference/benchmark-server-althea/app
+cd /root/althea/example/server/app
 docker build -q .
 docker run --rm -d -p 80:80 <IMAGE_HASH>
 ```
@@ -36,13 +36,13 @@ curl <PUBLIC_IP>
 - Execute on client
 ```shell
 git push -u origin <TARGET_BRANCH>
-docker-compose run --rm cli aws ssm start-session --target <INSTANCE_ID> --document-name benchmark-server-althea-deployer
+docker-compose run --rm cli aws ssm start-session --target <INSTANCE_ID> --document-name server-deployer
 ```
 
 - Execute on instance
 ```shell
 sudo su - root
-cd /root/althea/doc/reference/benchmark-server-althea/app
+cd /root/althea/example/server/app
 git pull
 git chechout -b <TARGET_BRANCH> origin/<TARGET_BRANCH>
 
