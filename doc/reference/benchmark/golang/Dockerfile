@@ -1,8 +1,9 @@
-FROM golang:1.19.0-buster
+FROM golang:1.19.0-bullseye
 
 ENV GO111MODULE=on
 ENV GOOS=linux
 ENV GOARCH=amd64
+ENV GOMAXPROCS=1
 
 WORKDIR /app
 
@@ -11,6 +12,6 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /usr/local/bin/benchmark-server-go main.go
+RUN go build -o /usr/local/bin/server main.go
 
-CMD ["benchmark-server-go"]
+CMD ["server"]
