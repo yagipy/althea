@@ -15,7 +15,7 @@ func main() {
 	}()
 	println("listening...")
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		bufTmp := make([]*int, 10000000)
+		bufTmp := make([]*int64, 10_000_000) // 8 byte * 10_000_000 = 80,000,000 byte = 80MB
 		runtime.KeepAlive(bufTmp)
 		fib(30)
 		fmt.Fprintf(w, fmt.Sprintf("success"))
