@@ -1,4 +1,4 @@
 locals {
-  app_name = "benchmark-server-althea"
+  app_name = "server"
   region = "ap-northeast-1"
 }
