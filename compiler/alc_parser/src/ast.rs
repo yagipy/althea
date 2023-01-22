@@ -45,10 +45,10 @@ pub enum BinopKind {
 
 #[derive(Clone, Debug)]
 pub enum Expr {
-    NumberLiteral(i64),
-    ArrayLiteral(Vec<Spanned<Expr>>),
-    StringLiteral(String),
-    Var(Vec<Spanned<Ident>>),
+    NumberLiteral(i64),               // 所有される
+    ArrayLiteral(Vec<Spanned<Expr>>), // 所有される
+    StringLiteral(String),            // 所有される
+    Var(Vec<Spanned<Ident>>), /* 変数、フィールドの場合はすでに所有されているため、借用することをデフォルトとする */
     Unop {
         kind: Spanned<UnopKind>,
         operand: Spanned<Box<Expr>>,
@@ -59,6 +59,7 @@ pub enum Expr {
         right: Spanned<Box<Expr>>,
     },
     Call {
+        //
         target: Spanned<Ident>,
         args: Vec<Spanned<Expr>>,
     },

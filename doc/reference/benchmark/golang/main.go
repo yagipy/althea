@@ -23,7 +23,13 @@ func main() {
 	http.HandleFunc("/gc-stats", func(w http.ResponseWriter, r *http.Request) {
 		var gcStats debug.GCStats
 		debug.ReadGCStats(&gcStats)
-		fmt.Fprintf(w, fmt.Sprintf("%#v", gcStats))
+		var worst int64
+		for _, pause := range gcStats.Pause {
+			if pause.Nanoseconds() > worst {
+				worst = pause.Nanoseconds()
+			}
+		}
+		fmt.Fprintf(w, fmt.Sprintf("worst: %d, all: %#v", worst, gcStats))
 	})
 	http.ListenAndServe(":80", nil)
 }

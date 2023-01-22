@@ -17,15 +17,23 @@ class MyServer {
     private static class MyHandler implements HttpHandler {
         public void handle(HttpExchange t) throws IOException {
             Headers resHeaders = t.getResponseHeaders();
-            resHeaders.set("Content-Type", "application/json");
+            resHeaders.set("Content-Type", "application/html");
 
-            OutputStream os = t.getResponseBody();
+            fib(30);
+            OutputStream outputStream = t.getResponseBody();
             String resBody = "Hello";
             long contentLength = resBody.getBytes(StandardCharsets.UTF_8).length;
             t.sendResponseHeaders(200, contentLength);
 
-            os.write(resBody.getBytes());
-            os.close();
+            outputStream.write(resBody.getBytes());
+            outputStream.close();
+        }
+
+        private int fib(int n) {
+            if (n < 2) {
+                return n;
+            }
+            return fib(n-1) + fib(n-2);
         }
     }
 }
