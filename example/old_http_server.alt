@@ -1,21 +1,3 @@
-func main() i32 {
-    let port: i16 = 20480
-    listen_and_serve(port)
-    // 1. 他コードなしで実行可能にする
-    // let port: i16 = 20480
-    // listen_and_serve(port)
-
-    // 2. htonsで変換
-    // let port: i16 = 80
-    // listen_and_serve(port)
-
-    // 3. 関数渡し
-    // let port: i16 = 80
-    // listen_and_serve(port, func handle() string {
-    //    "Hello"
-    // })
-}
-
 struct SockAddrIn {
     family: i16,
     port: i16,
@@ -27,7 +9,7 @@ struct InAddr {
     s_addr: i32,
 }
 
-func listen_and_serve(port: i16) i32 {
+func main() i32 {
     let socket_id = socket(2, 1, 0)
     if socket_id < 0 {
         println("socket error")
@@ -35,7 +17,7 @@ func listen_and_serve(port: i16) i32 {
     } else {
         let sock_addr_in = SockAddrIn {
             family: 2,
-            port: port,
+            port: 20480,
             addr: InAddr {
                 s_addr: 0,
             },
@@ -46,7 +28,7 @@ func listen_and_serve(port: i16) i32 {
             println("bind error")
             close(socket_id)
         } else {
-            let listen_id = listen(socket_id, 50)
+            let listen_id = listen(socket_id, 5)
             if listen_id != 0 {
                 println("listen error")
                 close(socket_id)
@@ -71,7 +53,8 @@ func transfer(socket_id: i32) i32 {
         let send_size: i64 = send(accept_id, res_buf, 2048, "HTTP/1.0 200 OK
 Content-Type: text/html
 
-Hello", 0)
+Welcome to Althea Server!
+", 0)
         let close_res = close(accept_id)
         transfer(socket_id)
     }

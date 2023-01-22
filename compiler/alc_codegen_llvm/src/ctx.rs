@@ -427,7 +427,6 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 http_header,
                 call_handler,
             } => {
-                // socket
                 let domain = self.lookup(*domain)?.into_int_value();
                 let ty = self.lookup(*ty)?.into_int_value();
                 let protocol = self.lookup(*protocol)?.into_int_value();
@@ -445,9 +444,8 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                             "attempted to return non-basic value from function call",
                             Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
                         ))
-                    })?;
-                // bind
-                let socket_file_descriptor = socket_file_descriptor.into_int_value();
+                    })?
+                    .into_int_value();
                 let address = self.lookup(*address)?.into_pointer_value();
                 let port_ptr = unsafe { self.gep(address, 1, "port") };
                 let port = self.builder.build_load(port_ptr, "port").into_int_value();
@@ -513,10 +511,64 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                             Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
                         ))
                     })?;
+                let recv_buffer = self.lookup(*recv_buffer)?.into_array_value();
+                let recv_buffer_length = self.lookup(*recv_buffer_length)?.into_int_value();
+                let recv_flags = self.lookup(*recv_flags)?.into_int_value();
                 let loop_block = self.context.append_basic_block(self.llvm, "loop");
+                let allocated_recv_buffer = self
+                    .builder
+                    .build_alloca(recv_buffer.get_type(), "allocated_buffer");
+                let recv_buffer_ptr = unsafe { self.gep(allocated_recv_buffer, 0, "buffer_ptr") };
+                let send_content_ptr = self.lookup(*call_handler)?.into_pointer_value();
+                let send_buffer = self.lookup(*send_buffer)?.into_array_value();
+                let send_buffer_length = self.lookup(*send_buffer_length)?.into_int_value();
+                let http_header = self.lookup(*http_header)?.into_vector_value();
+                let format_string = self.lookup(*format_string)?.into_vector_value();
+                let send_flags = self.lookup(*send_flags)?.into_int_value();
+                let allocated_send_buffer = self
+                    .builder
+                    .build_alloca(send_buffer.get_type(), "allocated_buffer");
+                let allocated_http_header = self
+                    .builder
+                    .build_alloca(http_header.get_type(), "allocated_http_header");
+                self.builder.build_store(allocated_http_header, http_header);
+                let allocated_format_string = self
+                    .builder
+                    .build_alloca(format_string.get_type(), "allocated_http_header");
+                self.builder.build_store(allocated_format_string, format_string);
+                let send_buffer_ptr = unsafe { self.gep(allocated_send_buffer, 0, "buffer_ptr") };
+                let http_header_ptr = unsafe { self.gep(allocated_http_header, 0, "content_ptr") };
+                let format_string_ptr = unsafe { self.gep(allocated_format_string, 0, "content_ptr") };
+                self.builder.build_call(
+                    self.module.get_function(SNPRINTF).unwrap(),
+                    &[
+                        send_buffer_ptr.into(),
+                        send_buffer_length.into(),
+                        format_string_ptr.into(),
+                        http_header_ptr.into(),
+                        send_content_ptr.into(),
+                    ],
+                    "snprintf",
+                );
+                let send_buffer_ptr_with_content =
+                    unsafe { self.gep(allocated_send_buffer, 0, "buffer_ptr") };
+                let send_content_length = self
+                    .builder
+                    .build_call(
+                        self.module.get_function(STRLEN).unwrap(),
+                        &[send_buffer_ptr_with_content.into()],
+                        "content_length",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .ok_or_else(|| {
+                        Box::from(Diagnostic::new_bug(
+                            "attempted to return non-basic value from function call",
+                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
+                        ))
+                    })?;
                 self.builder.build_unconditional_branch(loop_block);
                 self.builder.position_at_end(loop_block);
-                // accept
                 let accept_file_descriptor = self
                     .builder
                     .build_call(
@@ -549,16 +601,8 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                             "attempted to return non-basic value from function call",
                             Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
                         ))
-                    })?;
-                // recv
-                let accept_file_descriptor = accept_file_descriptor.into_int_value();
-                let recv_buffer = self.lookup(*recv_buffer)?.into_array_value();
-                let recv_buffer_length = self.lookup(*recv_buffer_length)?.into_int_value();
-                let recv_flags = self.lookup(*recv_flags)?.into_int_value();
-                let allocated_recv_buffer = self
-                    .builder
-                    .build_alloca(recv_buffer.get_type(), "allocated_buffer");
-                let recv_buffer_ptr = unsafe { self.gep(allocated_recv_buffer, 0, "buffer_ptr") };
+                    })?
+                    .into_int_value();
                 let _recv = self
                     .builder
                     .build_call(
@@ -570,57 +614,6 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                             recv_flags.into(),
                         ],
                         "recv",
-                    )
-                    .try_as_basic_value()
-                    .left()
-                    .ok_or_else(|| {
-                        Box::from(Diagnostic::new_bug(
-                            "attempted to return non-basic value from function call",
-                            Label::new(self.file_id, expr.span, "this call returns a non-basic value"),
-                        ))
-                    })?;
-                let send_content_ptr = self.lookup(*call_handler)?.into_pointer_value();
-                let send_buffer = self.lookup(*send_buffer)?.into_array_value();
-                let send_buffer_length = self.lookup(*send_buffer_length)?.into_int_value();
-                let http_header = self.lookup(*http_header)?.into_vector_value();
-                let format_string = self.lookup(*format_string)?.into_vector_value();
-                let send_flags = self.lookup(*send_flags)?.into_int_value();
-
-                let allocated_send_buffer = self
-                    .builder
-                    .build_alloca(send_buffer.get_type(), "allocated_buffer");
-                let send_buffer_ptr = unsafe { self.gep(allocated_send_buffer, 0, "buffer_ptr") };
-                let allocated_http_header = self
-                    .builder
-                    .build_alloca(http_header.get_type(), "allocated_http_header");
-                self.builder.build_store(allocated_http_header, http_header);
-                let http_header_ptr = unsafe { self.gep(allocated_http_header, 0, "content_ptr") };
-
-                let allocated_format_string = self
-                    .builder
-                    .build_alloca(format_string.get_type(), "allocated_http_header");
-                self.builder.build_store(allocated_format_string, format_string);
-                let format_string_ptr = unsafe { self.gep(allocated_format_string, 0, "content_ptr") };
-
-                self.builder.build_call(
-                    self.module.get_function(SNPRINTF).unwrap(),
-                    &[
-                        send_buffer_ptr.into(),
-                        send_buffer_length.into(),
-                        format_string_ptr.into(),
-                        http_header_ptr.into(),
-                        send_content_ptr.into(),
-                    ],
-                    "snprintf",
-                );
-                let send_buffer_ptr_with_content =
-                    unsafe { self.gep(allocated_send_buffer, 0, "buffer_ptr") };
-                let send_content_length = self
-                    .builder
-                    .build_call(
-                        self.module.get_function(STRLEN).unwrap(),
-                        &[send_buffer_ptr_with_content.into()],
-                        "content_length",
                     )
                     .try_as_basic_value()
                     .left()
