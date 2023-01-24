@@ -3,7 +3,7 @@ name: ci
 on: push
 
 env:
-  LLVM_VERSION: "14.0"
+  LLVM_VERSION: "13.0.0"
 
 jobs:
   check:
