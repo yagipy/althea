@@ -1,6 +1,9 @@
 name: ci
 
-on: push
+on:
+  pull_request:
+  pull_request_target:
+    types: [labeled]
 
 env:
   LLVM_VERSION: "13.0.0"
@@ -8,6 +11,7 @@ env:
 jobs:
   check:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'ci')) }}
     strategy:
       matrix:
         toolchain: [nightly, stable]
@@ -27,6 +31,7 @@ jobs:
 
   fmt:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'ci')) }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1.0.6
@@ -43,6 +48,7 @@ jobs:
   clippy:
 #    needs: [check]
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'ci')) }}
     steps:
         - uses: actions/checkout@v3
         - uses: KyleMayes/install-llvm-action@v1
