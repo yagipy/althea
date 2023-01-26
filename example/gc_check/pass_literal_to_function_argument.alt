@@ -1,0 +1,19 @@
+struct User {
+    id: i32,
+}
+
+func main() i32 {
+    // 現在のスコープに無名変数を確保し、スコープを抜ける時に削除
+    let num: i32 = foo(User {
+        id: 1,
+    })
+    num
+}
+
+func foo(arg_user: User) i32 {
+    let tmp_user: User = User {
+        id: 2,
+    }
+    // tmp_userは解放される
+    0
+}
