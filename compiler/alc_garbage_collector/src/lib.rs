@@ -120,17 +120,39 @@ impl<'gc> LocalOwnRcCtx<'gc> {
         if let ir::Instruction {
             kind:
                 ir::InstructionKind::Let {
-                    binding,
-                    ty: Some(ty),
-                    expr: _,
+                    binding: _,
+                    ty: _,
+                    expr:
+                        ir::Expr {
+                            local_idx,
+                            span: _,
+                            kind: ir::ExprKind::Record { ty, fields },
+                        },
                 },
             span: _,
         } = instruction
         {
-            if self.global_ctx.ty_sess.ty_kind(*ty).is_struct() {
-                self.retain_malloc_map(*binding, *ty);
+            self.retain_malloc_map(*local_idx, *ty);
+            let fields_by_ty_sess = self
+                .global_ctx
+                .ty_sess
+                .ty_kind(*ty)
+                .as_struct()
+                .unwrap()
+                .fields
+                .clone();
+            for (field_idx, local_idx) in fields.iter() {
+                if self
+                    .global_ctx
+                    .ty_sess
+                    .ty_kind(*fields_by_ty_sess.get(field_idx).unwrap())
+                    .is_struct()
+                {
+                    self.retain_malloc_map(*local_idx, *fields_by_ty_sess.get(field_idx).unwrap());
+                }
             }
         }
+
         instruction.clone()
     }
 

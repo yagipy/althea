@@ -772,7 +772,7 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                     // let const_ref = self.builder.build_alloca(value.get_type(), "return_tmp");
                     let const_ref = self
                         .builder
-                        .build_malloc(value.get_type(), &"return_tmp")
+                        .build_malloc(value.get_type(), "return_tmp")
                         .map_err(|err| {
                             Box::from(Diagnostic::new_bug(
                                 "failed to build malloc call",
