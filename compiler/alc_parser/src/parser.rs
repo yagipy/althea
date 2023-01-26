@@ -481,7 +481,7 @@ impl<'a> Parser<'a> {
                         self.file_id,
                         span,
                         // TODO: リファクタ
-                        format!("TODO"),
+                        "TODO".to_string(),
                     ),
                 )))?
             };

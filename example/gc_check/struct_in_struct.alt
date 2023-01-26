@@ -8,16 +8,11 @@ struct Bar {
 }
 
 func main() i32 {
-    let socket_id = 0
-    if socket_id < 0 {
-        0
-    } else {
-        let sock_addr_in = Foo {
-            bar: Bar {
-                bar_field: 0,
-            },
-            foo_field: 1,
-        }
-        0
+    let sock_addr_in = Foo {
+        bar: Bar {
+            bar_field: 0,
+        },
+        foo_field: 1,
     }
+    0
 }
