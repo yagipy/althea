@@ -711,6 +711,44 @@ impl<'gen, 'ctx> CodegenLLVMCtx<'gen, 'ctx> {
                 }
                 Gc::None => {}
             },
+            ir::InstructionKind::IncrementRc(idx, ty) => {
+                let ptr = self.lookup(*idx)?.into_pointer_value();
+                let rc_ptr = self.mark_ptr(ptr, *ty);
+                let current_rc = self.builder.build_load(rc_ptr, "rc").into_int_value();
+                let new_rc = self.builder.build_int_add(
+                    current_rc,
+                    self.context.i32_type().const_int(1, false),
+                    "increment_rc",
+                );
+                self.builder.build_store(rc_ptr, new_rc);
+            }
+            ir::InstructionKind::DecrementRc(idx, ty) => {
+                let ptr = self.lookup(*idx)?.into_pointer_value();
+                let rc_ptr = self.mark_ptr(ptr, *ty);
+                let current_rc = self.builder.build_load(rc_ptr, "rc").into_int_value();
+                let new_rc = self.builder.build_int_sub(
+                    current_rc,
+                    self.context.i32_type().const_int(1, false),
+                    "decrement_rc",
+                );
+                self.builder.build_store(rc_ptr, new_rc);
+                let free_block = self.context.append_basic_block(self.llvm, "free");
+                let else_block = self.context.append_basic_block(self.llvm, "else");
+                self.builder.build_conditional_branch(
+                    self.builder.build_int_compare(
+                        IntPredicate::SLE,
+                        new_rc,
+                        self.context.i32_type().const_int(0, false),
+                        "is_zero",
+                    ),
+                    free_block,
+                    else_block,
+                );
+                self.builder.position_at_end(free_block);
+                self.build_free(ptr);
+                self.builder.build_unconditional_branch(else_block);
+                self.builder.position_at_end(else_block);
+            }
         }
         Ok(())
     }

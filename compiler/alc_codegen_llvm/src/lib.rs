@@ -4,7 +4,7 @@ extern crate core;
 
 use crate::ctx::CodegenLLVMCtx;
 use alc_ast_lowering::{idx::Idx, ir, ir::ExprKind, ty, ty::Array};
-use alc_command_option::CommandOptions;
+use alc_command_option::{CommandOptions, Gc};
 use alc_diagnostic::{Diagnostic, FileId, Label, Result, Span};
 use inkwell::{
     builder::Builder,
@@ -430,13 +430,13 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
 
     fn mark_ptr(&self, ptr: PointerValue<'ctx>, ty: ty::Ty) -> PointerValue<'ctx> {
         if self.ty_sess.ty_kind(ty).is_enum() {
-            unsafe { self.gep(ptr, 2, "mark_ptr") }
+            unsafe { self.gep(ptr, 2, "rc_ptr") }
         } else if self.ty_sess.ty_kind(ty).is_struct() {
             unsafe {
                 self.gep(
                     ptr,
                     self.ty_sess.ty_kind(ty).field_count().unwrap() as u64,
-                    "mark_ptr",
+                    "rc_ptr",
                 )
             }
         } else {
@@ -571,16 +571,20 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
                 self.context.i8_type().array_type(*size as u32).into()
             }
             ty::TyKind::Enum(_) => {
-                let field_tys = vec![self.context.i64_type().into(), self.context.i64_type().into()];
-                // TODO: GC
+                let mut field_tys = vec![self.context.i32_type().into(), self.context.i32_type().into()];
+                if self.command_options.gc == Gc::OwnRc {
+                    field_tys.push(self.context.i32_type().into());
+                }
                 self.context.struct_type(field_tys.as_slice(), false).into()
             }
             ty::TyKind::Struct(ty::Struct { fields }) => {
-                let field_tys = fields
+                let mut field_tys = fields
                     .values()
                     .map(|ty| self.compile_basic_ty(*ty))
                     .collect::<Vec<_>>();
-                // TODO: GC
+                if self.command_options.gc == Gc::OwnRc {
+                    field_tys.push(self.context.i32_type().into());
+                }
                 self.context.struct_type(field_tys.as_slice(), false).into()
             }
             _ => panic!("attempted to compile function type as basic type"),
