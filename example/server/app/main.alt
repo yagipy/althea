@@ -1,5 +1,11 @@
 func main() i32 {
     listen_and_serve(80, func handle() string {
-        "Hello, World"
+        "
+<meta charset='UTF-8'>
+<h1>Althea</h1>
+このサーバーはAltheaを使用しています</br>
+Altheaのコードは<a href='https://github.com/yagipy/althea'>こちら</a></br>
+サーバーのコードは<a href='https://github.com/yagipy/althea/tree/main/example/server'>こちら</a></br>
+"
     })
 }
