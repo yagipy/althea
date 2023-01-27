@@ -20,3 +20,9 @@ java-attack:
 	rm -f java.html
 	vegeta plot java.bin > java.html
 	open java.html
+
+althea-attack:
+	echo "GET http://${IP}" | vegeta attack -duration=5m | tee althea.bin | vegeta report
+	rm -f althea.html
+	vegeta plot althea.bin > althea.html
+	open althea.html

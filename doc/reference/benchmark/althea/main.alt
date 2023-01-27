@@ -1,0 +1,17 @@
+func main() i32 {
+    listen_and_serve(80, func handle() string {
+        // _malloc()
+        let result = fib(30)
+        "Hello, World"
+    })
+}
+
+func fib(n: i32) i32 {
+    if n <= 0 {
+        0
+    } else if n == 1 {
+        1
+    } else {
+        fib(n - 1) + fib(n - 2)
+    }
+}
