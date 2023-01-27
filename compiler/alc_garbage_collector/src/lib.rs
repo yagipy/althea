@@ -117,42 +117,61 @@ impl<'gc> LocalOwnRcCtx<'gc> {
     }
 
     fn collect_instruction(&mut self, instruction: &ir::Instruction) -> ir::Instruction {
-        if let ir::Instruction {
-            kind:
-                ir::InstructionKind::Let {
-                    binding: _,
-                    ty: _,
-                    expr:
-                        ir::Expr {
-                            local_idx,
-                            span: _,
-                            kind: ir::ExprKind::Record { ty, fields },
-                        },
-                },
-            span: _,
-        } = instruction
-        {
-            self.retain_malloc_map(*local_idx, *ty);
-            let fields_by_ty_sess = self
-                .global_ctx
-                .ty_sess
-                .ty_kind(*ty)
-                .as_struct()
-                .unwrap()
-                .fields
-                .clone();
-            for (field_idx, local_idx) in fields.iter() {
-                if self
+        match instruction {
+            ir::Instruction {
+                kind:
+                    ir::InstructionKind::Let {
+                        binding: _,
+                        ty: _,
+                        expr:
+                            ir::Expr {
+                                local_idx,
+                                span: _,
+                                kind: ir::ExprKind::Record { ty, fields },
+                            },
+                    },
+                span: _,
+            } => {
+                self.retain_malloc_map(*local_idx, *ty);
+                let fields_by_ty_sess = self
                     .global_ctx
                     .ty_sess
-                    .ty_kind(*fields_by_ty_sess.get(field_idx).unwrap())
-                    .is_struct()
-                {
-                    self.retain_malloc_map(*local_idx, *fields_by_ty_sess.get(field_idx).unwrap());
+                    .ty_kind(*ty)
+                    .as_struct()
+                    .unwrap()
+                    .fields
+                    .clone();
+                for (field_idx, local_idx) in fields.iter() {
+                    if self
+                        .global_ctx
+                        .ty_sess
+                        .ty_kind(*fields_by_ty_sess.get(field_idx).unwrap())
+                        .is_struct()
+                    {
+                        self.retain_malloc_map(*local_idx, *fields_by_ty_sess.get(field_idx).unwrap());
+                    }
                 }
             }
+            ir::Instruction {
+                kind:
+                    ir::InstructionKind::Let {
+                        binding: _,
+                        ty: Some(ty),
+                        expr:
+                            ir::Expr {
+                                local_idx: _,
+                                span: _,
+                                kind: ir::ExprKind::Var(local_idx_in_var, _),
+                            },
+                    },
+                span: _,
+            } => {
+                if self.global_ctx.ty_sess.ty_kind(*ty).is_struct() {
+                    self.retain_malloc_map(*local_idx_in_var, *ty);
+                }
+            }
+            _ => {}
         }
-
         instruction.clone()
     }
 
@@ -167,10 +186,14 @@ impl<'gc> LocalOwnRcCtx<'gc> {
     fn retain_malloc_map(&mut self, local_idx: LocalIdx, ty: ty::Ty) {
         if let Some((_, count)) = self.malloc_map.get_mut(&local_idx) {
             *count += 1;
+            self.instructions.push(ir::Instruction {
+                kind: ir::InstructionKind::IncrementRc(local_idx, ty),
+                span: local_idx.span(),
+            });
             return;
         }
 
-        self.malloc_map.insert(local_idx, (ty, 0));
+        self.malloc_map.insert(local_idx, (ty, 1));
     }
 
     fn release_malloc_map(&mut self) {
@@ -183,6 +206,11 @@ impl<'gc> LocalOwnRcCtx<'gc> {
                     span: malloc_idx.span(),
                 });
                 continue;
+            } else {
+                self.instructions.push(ir::Instruction {
+                    kind: ir::InstructionKind::DecrementRc(*malloc_idx, *ty),
+                    span: malloc_idx.span(),
+                });
             }
 
             new_malloc_map.insert(*malloc_idx, (*ty, *count));

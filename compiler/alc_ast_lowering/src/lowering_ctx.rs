@@ -638,6 +638,21 @@ impl<'lcx, 'ast> LoweringCtx<'lcx, 'ast> {
                     _ => None,
                 };
                 let idx = self.lower_expr(ty, expr, expr.span())?;
+                if let ast::Expr::Var(_) = expr.clone().into_raw() {
+                    let local_idx = self.local_idxr.next();
+                    self.instructions.push(ir::Instruction {
+                        span,
+                        kind: ir::InstructionKind::Let {
+                            binding: local_idx,
+                            ty,
+                            expr: ir::Expr {
+                                local_idx,
+                                span,
+                                kind: ir::ExprKind::Var(idx, vec![]),
+                            },
+                        },
+                    });
+                }
                 self.bind(binder, idx, ty);
                 self.lower_term(body, body.span())
             }

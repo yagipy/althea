@@ -256,6 +256,8 @@ pub enum InstructionKind {
     Mark(LocalIdx, Ty),
     Unmark(LocalIdx, Ty),
     Free(LocalIdx, Ty),
+    IncrementRc(LocalIdx, Ty),
+    DecrementRc(LocalIdx, Ty),
 }
 
 #[derive(Clone, Debug)]

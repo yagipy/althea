@@ -467,6 +467,8 @@ impl<'tcx> LocalTyCtx<'tcx> {
                     )));
                 }
             }
+            ir::InstructionKind::IncrementRc(..) => {}
+            ir::InstructionKind::DecrementRc(..) => {}
         }
         Ok(())
     }
