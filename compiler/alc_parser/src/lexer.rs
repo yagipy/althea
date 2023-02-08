@@ -163,15 +163,13 @@ impl<'a> Lexer<'a> {
         loop {
             match self.chars.next()? {
                 '"' => break Some(Token::new(Kind::StringLiteral, &data)),
-                '\\' => {
-                    match self.nth_char(0) {
-                        'n' => {
-                            data.push_str("\n");
-                            self.chars.next();
-                        }
-                        c => data.push(c)
+                '\\' => match self.nth_char(0) {
+                    'n' => {
+                        data.push_str("\n");
+                        self.chars.next();
                     }
-                }
+                    c => data.push(c),
+                },
                 c => {
                     data.push(c);
                 }

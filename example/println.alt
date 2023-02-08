@@ -1,4 +1,4 @@
 func main() i32 {
-    println("Hello, world")
+    println("Hello, world\nNew line")
     0
 }
