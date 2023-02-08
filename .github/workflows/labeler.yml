@@ -1,15 +1,10 @@
 name: labeler
 
-on:
-  pull_request:
-  pull_request_target:
-    types: [labeled]
+on: pull_request_target
 
 jobs:
   triage:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'ci')) }}
-
     steps:
       - uses: actions/labeler@v3
         with:
