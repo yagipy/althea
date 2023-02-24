@@ -1,0 +1,34 @@
+enum Result {
+    Ok(i32),
+    Err(string),
+}
+
+struct Foo {
+  bar: Result,
+}
+
+func main() i32 {
+  let foo: Foo = Foo {
+    bar: Result::Ok(1),
+  }
+  let baz: string = "This is baz."
+  let arr: [i8; 8] = [1; 8]
+  match foo {
+    Foo { bar: bar } => match bar {
+      Result::Ok(val) => {
+        println("This is Foo.\n")
+        if val == 1 {
+          println("foo.bar is 1.\n")
+          add(val, 2)
+        } else {
+          println("foo.bar is not 1.\n")
+          0
+        }
+      }
+    },
+  }
+}
+
+func add(a: i32, b: i32) i32 {
+  a + b
+}

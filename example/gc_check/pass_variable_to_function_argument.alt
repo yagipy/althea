@@ -1,19 +1,15 @@
-struct User {
-    id: i32,
+struct Foo {
+    bar: i32,
 }
 
 func main() i32 {
-    let user: User = User {
-        id: 1,
+    let foo: Foo = Foo {
+        bar: 1,
     }
-    let num: i32 = foo(user) // 借用
-    user.id
+    let baz_val: i32 = baz(foo)
+    baz_val
 }
 
-func foo(arg_user: User) i32 {
-    let tmp_user: User = User {
-        id: 2,
-    }
-    // tmp_userは解放される
+func baz(foo: Foo) i32 {
     0
 }

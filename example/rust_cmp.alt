@@ -1,13 +1,6 @@
-struct Foo {
-    var: i32,
-}
-
 func main() i32 {
-    let foo: Foo = Foo {
-        var: 1,
-    }
+    let foo = "foo"
     let bar = foo
-    // println(foo.var)
-    // 0
-    foo.var
+    println(foo)
+    0
 }

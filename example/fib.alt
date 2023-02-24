@@ -11,3 +11,28 @@ func fib(n: i32) i32 {
 func main() i32 {
     fib(10)
 }
+
+enum Result {
+  Ok(i32),
+  Err(string),
+}
+
+struct User {
+  id: Result,
+}
+
+func main() i32 {
+  let foo: Foo = Foo {
+    bar: Result::Ok(1),
+  }
+  let baz: string = "This is baz.\n"
+  let arr: [i8; 8] = [1; 8]
+
+  match foo {
+    Foo { bar: bar } => match bar {
+      Result::Ok(val) => {
+        println("This is Foo.\n")
+      }
+    },
+  }
+}
