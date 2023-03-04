@@ -3,13 +3,8 @@ struct Foo {
 }
 
 func main() i32 {
-  listen_and_serve(
-    80,
-    func handle() string {
-      let foo: Foo = Foo {
-        bar: 1,
-      }
-      "Welcome to Althea Server!"
-    }
-  )
+  let foo: Foo = Foo {
+    bar: 1,
+  }
+  0
 }
