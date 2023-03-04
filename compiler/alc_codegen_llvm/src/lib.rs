@@ -484,7 +484,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     ) -> BasicValueEnum<'ctx> {
         let variant_ty = self.ty_sess.ty_kind(ty).variant_ty(idx).unwrap();
         let body_ptr = self.enum_body_ptr(ptr, ty);
-        if variant_ty != self.ty_sess.make_i64() {
+        if variant_ty != self.ty_sess.make_i32() {
             let uncast_body = self.builder.build_load(body_ptr, "body");
             self.builder
                 .build_int_to_ptr(
@@ -502,7 +502,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     fn write_enum_discriminant(&self, ptr: PointerValue<'ctx>, ty: ty::Ty, idx: ty::VariantIdx) {
         self.builder.build_store(
             self.enum_discriminant_ptr(ptr, ty),
-            self.context.i64_type().const_int(idx.index() as u64, false),
+            self.context.i32_type().const_int(idx.index() as u64, false),
         );
     }
 
@@ -515,7 +515,7 @@ impl<'gen, 'ctx> CodegenLLVM<'gen, 'ctx> {
     ) {
         let variant_ty = self.ty_sess.ty_kind(ty).variant_ty(idx).unwrap();
         let body_ptr = self.enum_body_ptr(ptr, ty);
-        let cast_body = if variant_ty != self.ty_sess.make_i64() {
+        let cast_body = if variant_ty != self.ty_sess.make_i32() {
             self.builder
                 .build_ptr_to_int(val.into_pointer_value(), self.context.i64_type(), "cast_body")
                 .into()

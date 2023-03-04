@@ -1,8 +1,5 @@
 func main() i32 {
-    let hello = do()
-    0
-}
-
-func do() string {
-    "Hello"
+  listen_and_serve(80, func handle() string {
+    "Welcome to Althea Server!"
+  })
 }

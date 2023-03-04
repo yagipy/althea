@@ -1,19 +1,14 @@
-struct User {
-    id: i32,
+struct Foo {
+  bar: i32,
 }
 
 func main() i32 {
-    // 現在のスコープに無名変数を確保し、スコープを抜ける時に削除
-    let num: i32 = foo(User {
-        id: 1,
-    })
-    num
+  let baz_val: i32 = baz(Foo {
+    bar: 1,
+  })
+  baz_val
 }
 
-func foo(arg_user: User) i32 {
-    let tmp_user: User = User {
-        id: 2,
-    }
-    // tmp_userは解放される
-    0
+func baz(foo: Foo) i32 {
+  0
 }

@@ -1,11 +1,11 @@
-struct User {
-    id: i32,
+struct Foo {
+    bar: i32,
 }
 
 func main() i32 {
-    let user: User = User {
-        id: 1,
+    let foo: Foo = Foo {
+        bar: 1,
     }
-    let user2: User = user // 参照カウントを更新
-    user2.id
+    let foo2: Foo = foo
+    0
 }

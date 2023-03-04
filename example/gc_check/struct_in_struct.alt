@@ -1,19 +1,16 @@
 struct Foo {
-    bar: Bar,
-    foo_field: i32,
+  bar: Bar,
 }
 
 struct Bar {
-    bar_field: i32,
+  bar_field: i32,
 }
 
 func main() i32 {
-    let sock_addr_in = Foo {
-        bar: Bar {
-            bar_field: 0,
-        },
-        foo_field: 1,
-    }
-    // 親と子を再帰的に解放する
-    0
+  let foo = Foo {
+    bar: Bar {
+      bar_field: 0,
+    },
+  }
+  0
 }
