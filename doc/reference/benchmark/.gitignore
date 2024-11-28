@@ -1,6 +1,9 @@
 golang.bin
 golang.html
+golang.trace
 java.bin
 java.html
 ruby.bin
 ruby.html
+java/MyServer.class
+java/MyServer$MyHandler.class
